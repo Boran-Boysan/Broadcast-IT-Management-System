@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Envanter Dashboard - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}" class="active">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">
+                    <div class="inventory-icon">
+                        <i class="fas fa-boxes"></i>
+                    </div>
+                    Envanter Yönetimi
+                </h1>
+                <p style="color: #6c757d; margin-top: 10px; font-size: 1.1em;">
+                    Ekipman ve yazılım lisanslarınızı tek yerden yönetin
+                </p>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <a href="#combined" class="nav-tab active" onclick="switchTab('combined', this)">
+                    <i class="fas fa-th-large"></i>
+                    Genel Görünüm
+                </a>
+                <a href="#equipment" class="nav-tab" onclick="switchTab('equipment', this)">
+                    <i class="fas fa-desktop"></i>
+                    Sadece Ekipmanlar
+                </a>
+                <a href="#licenses" class="nav-tab" onclick="switchTab('licenses', this)">
+                    <i class="fas fa-key"></i>
+                    Sadece Lisanslar
+                </a>
+            </div>
+
+            <!-- Combined View (Default - HEM EKİPMAN HEM LİSANS) -->
+            <div id="combined-tab" class="tab-content active">
+                <!-- Combined Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card equipment">
+                        <div class="stat-header">
+                            <span class="stat-title">Toplam Ekipman</span>
+                            <div class="stat-icon equipment">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.total_equipment or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Kullanımda: {{ stats.in_use or 0 }}</span>
+                            <span class="stat-detail">Stokta: {{ stats.in_stock or 0 }}</span>
+                            <span class="stat-detail">Tamirde: {{ stats.under_repair or 0 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card licenses">
+                        <div class="stat-header">
+                            <span class="stat-title">Toplam Lisans</span>
+                            <div class="stat-icon licenses">
+                                <i class="fas fa-key"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.total_licenses or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Aktif: {{ stats.active_licenses or 0 }}</span>
+                            <span class="stat-detail">Süresi Dolmuş: {{ stats.expired_licenses or 0 }}</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card alerts">
+                        <div class="stat-header">
+                            <span class="stat-title">Uyarılar</span>
+                            <div class="stat-icon alerts">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.expiring_soon or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Süresi Yaklaşan Lisanslar</span>
+                            <span class="stat-detail">30 Gün İçinde</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card summary">
+                        <div class="stat-header">
+                            <span class="stat-title">Kullanım Oranı</span>
+                            <div class="stat-icon summary">
+                                <i class="fas fa-chart-pie"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ ((stats.in_use / stats.total_equipment * 100)|round)|int if stats.total_equipment > 0 else 0 }}%</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Ekipman Kullanımı</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EKIPMAN BÖLÜMÜ -->
+                <div class="section-container">
+                    <div class="section-header">
+                        <h2><i class="fas fa-desktop"></i> Ekipman Yönetimi</h2>
+                        <div class="quick-actions">
+                            <a href="{{ url_for('main.admin_add_equipment') }}" class="action-btn success">
+                                <i class="fas fa-plus-circle"></i>
+                                Ekipman Ekle
+                            </a>
+                            <a href="{{ url_for('main.admin_inventory_equipment') }}" class="action-btn primary">
+                                <i class="fas fa-list"></i>
+                                Tüm Ekipmanlar
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <span><i class="fas fa-desktop"></i> Son Eklenen Ekipmanlar</span>
+                            <span>{{ recent_equipment|length if recent_equipment else 0 }} kayıt</span>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_equipment %}
+                                {% for equipment in recent_equipment %}
+                                    <div class="equipment-item">
+                                        <div class="item-icon equipment">
+                                            <i class="fas fa-desktop"></i>
+                                        </div>
+                                        <div class="item-info">
+                                            <h4>{{ equipment.equipment_name }}</h4>
+                                            <p>{{ equipment.category }}{% if equipment.brand %} - {{ equipment.brand }}{% endif %}</p>
+                                            <p>Seri No: {{ equipment.serial_number or 'Belirtilmemiş' }}</p>
+                                        </div>
+                                        <span class="status-badge status-{{ equipment.status }}">
+                                            {% if equipment.status == 'in_use' %}Kullanımda
+                                            {% elif equipment.status == 'in_stock' %}Stokta
+                                            {% elif equipment.status == 'under_repair' %}Tamirde
+                                            {% else %}{{ equipment.status }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                {% endfor %}
+                                <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                                    <a href="{{ url_for('main.admin_inventory_equipment') }}" style="color: #28a745; text-decoration: none; font-weight: 500;">
+                                        Tümünü Gör <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="fas fa-desktop"></i>
+                                    <h4>Henüz Ekipman Yok</h4>
+                                    <p>İlk ekipmanı eklemek için yukarıdaki butonu kullanın.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LİSANS BÖLÜMÜ -->
+                <div class="section-container">
+                    <div class="section-header">
+                        <h2><i class="fas fa-key"></i> Lisans Yönetimi</h2>
+                        <div class="quick-actions">
+                            <a href="{{ url_for('main.admin_add_license') }}" class="action-btn success">
+                                <i class="fas fa-key"></i>
+                                Lisans Ekle
+                            </a>
+                            <a href="{{ url_for('main.admin_licenses') }}" class="action-btn primary">
+                                <i class="fas fa-certificate"></i>
+                                Tüm Lisanslar
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="cards-row">
+                        <!-- Recent Licenses -->
+                        <div class="card">
+                            <div class="card-header">
+                                <span><i class="fas fa-key"></i> Son Eklenen Lisanslar</span>
+                                <span>{{ recent_licenses|length if recent_licenses else 0 }} kayıt</span>
+                            </div>
+                            <div class="card-body">
+                                {% if recent_licenses %}
+                                    {% for license in recent_licenses %}
+                                        <div class="license-item">
+                                            <div class="item-icon license">
+                                                <i class="fas fa-key"></i>
+                                            </div>
+                                            <div class="item-info">
+                                                <h4>{{ license.software_name }}</h4>
+                                                <p>{{ license.vendor or 'Vendor belirtilmemiş' }}</p>
+                                                {% if license.expiration_date %}
+                                                    <p>Bitiş: {{ license.expiration_date.strftime('%d.%m.%Y') }}</p>
+                                                {% endif %}
+                                            </div>
+                                            <span class="status-badge status-{{ license.status }}">
+                                                {% if license.status == 'active' %}Aktif
+                                                {% elif license.status == 'expired' %}Süresi Dolmuş
+                                                {% else %}{{ license.status }}
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    {% endfor %}
+                                    <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                                        <a href="{{ url_for('main.admin_licenses') }}" style="color: #ffc107; text-decoration: none; font-weight: 500;">
+                                            Tümünü Gör <i class="fas fa-arrow-right"></i>
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="empty-state">
+                                        <i class="fas fa-key"></i>
+                                        <h4>Henüz Lisans Yok</h4>
+                                        <p>İlk lisansı eklemek için yukarıdaki butonu kullanın.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Expiring Licenses -->
+                        <div class="card">
+                            <div class="card-header">
+                                <span><i class="fas fa-exclamation-triangle"></i> Süresi Yaklaşan Lisanslar</span>
+                                <span>{{ expiring_licenses|length if expiring_licenses else 0 }} kayıt</span>
+                            </div>
+                            <div class="card-body">
+                                {% if expiring_licenses %}
+                                    {% for license in expiring_licenses %}
+                                        <div class="license-item warning">
+                                            <div class="item-icon warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </div>
+                                            <div class="item-info">
+                                                <h4>{{ license.software_name }}</h4>
+                                                <p>{{ license.vendor or 'Vendor belirtilmemiş' }}</p>
+                                                <p>Bitiş: {{ license.expiration_date.strftime('%d.%m.%Y') if license.expiration_date }}</p>
+                                            </div>
+                                            <span class="status-badge status-expiring">
+                                                {{ license.days_until_expiry }} gün
+                                            </span>
+                                        </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="empty-state">
+                                        <i class="fas fa-check-circle"></i>
+                                        <h4>Tüm Lisanslar Güncel</h4>
+                                        <p>Yakın zamanda süresi dolacak lisans yok.</p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Equipment Only Tab Content -->
+            <div id="equipment-tab" class="tab-content">
+                <!-- Quick Actions for Equipment -->
+                <div class="quick-actions">
+                    <a href="{{ url_for('main.admin_add_equipment') }}" class="action-btn success">
+                        <i class="fas fa-plus-circle"></i>
+                        Ekipman Ekle
+                    </a>
+                    <a href="{{ url_for('main.admin_inventory_equipment') }}" class="action-btn primary">
+                        <i class="fas fa-list"></i>
+                        Tüm Ekipmanlar
+                    </a>
+                    <a href="#" onclick="showComingSoon('QR Kod Oluştur')" class="action-btn">
+                        <i class="fas fa-qrcode"></i>
+                        QR Kod Oluştur
+                    </a>
+                    <a href="#" onclick="showComingSoon('Excel Rapor')" class="action-btn">
+                        <i class="fas fa-file-export"></i>
+                        Excel Rapor
+                    </a>
+                </div>
+
+                <!-- Equipment Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card equipment">
+                        <div class="stat-header">
+                            <span class="stat-title">Toplam Ekipman</span>
+                            <div class="stat-icon equipment">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.total_equipment or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Tüm kategoriler dahil</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card equipment">
+                        <div class="stat-header">
+                            <span class="stat-title">Kullanımda</span>
+                            <div class="stat-icon equipment">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.in_use or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Çalışanlara atanmış</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card equipment">
+                        <div class="stat-header">
+                            <span class="stat-title">Stokta</span>
+                            <div class="stat-icon equipment">
+                                <i class="fas fa-warehouse"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.in_stock or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Atanmayı bekliyor</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card alerts">
+                        <div class="stat-header">
+                            <span class="stat-title">Tamirde</span>
+                            <div class="stat-icon alerts">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.under_repair or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Bakım gerekli</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Equipment -->
+                <div class="card">
+                    <div class="card-header">
+                        <span><i class="fas fa-desktop"></i> Son Eklenen Ekipmanlar</span>
+                        <span>{{ recent_equipment|length if recent_equipment else 0 }} kayıt</span>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_equipment %}
+                            {% for equipment in recent_equipment %}
+                                <div class="equipment-item">
+                                    <div class="item-icon equipment">
+                                        <i class="fas fa-desktop"></i>
+                                    </div>
+                                    <div class="item-info">
+                                        <h4>{{ equipment.equipment_name }}</h4>
+                                        <p>{{ equipment.category }}{% if equipment.brand %} - {{ equipment.brand }}{% endif %}</p>
+                                        <p>Seri No: {{ equipment.serial_number or 'Belirtilmemiş' }}</p>
+                                    </div>
+                                    <span class="status-badge status-{{ equipment.status }}">
+                                        {% if equipment.status == 'in_use' %}Kullanımda
+                                        {% elif equipment.status == 'in_stock' %}Stokta
+                                        {% elif equipment.status == 'under_repair' %}Tamirde
+                                        {% else %}{{ equipment.status }}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            {% endfor %}
+                            <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                                <a href="{{ url_for('main.admin_inventory_equipment') }}" style="color: #28a745; text-decoration: none; font-weight: 500;">
+                                    Tümünü Gör <i class="fas fa-arrow-right"></i>
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="empty-state">
+                                <i class="fas fa-desktop"></i>
+                                <h4>Henüz Ekipman Yok</h4>
+                                <p>İlk ekipmanı eklemek için yukarıdaki butonu kullanın.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Licenses Tab Content -->
+            <div id="licenses-tab" class="tab-content">
+                <!-- Quick Actions for Licenses -->
+                <div class="quick-actions">
+                    <a href="{{ url_for('main.admin_add_license') }}" class="action-btn success">
+                        <i class="fas fa-key"></i>
+                        Lisans Ekle
+                    </a>
+                    <a href="{{ url_for('main.admin_licenses') }}" class="action-btn primary">
+                        <i class="fas fa-certificate"></i>
+                        Tüm Lisanslar
+                    </a>
+                    <a href="#" onclick="showComingSoon('Lisans Raporu')" class="action-btn">
+                        <i class="fas fa-file-export"></i>
+                        Lisans Raporu
+                    </a>
+                    <a href="#" onclick="showComingSoon('Süresi Dolacaklar')" class="action-btn">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Süresi Dolacaklar
+                    </a>
+                </div>
+
+                <!-- License Statistics -->
+                <div class="stats-grid">
+                    <div class="stat-card licenses">
+                        <div class="stat-header">
+                            <span class="stat-title">Toplam Lisans</span>
+                            <div class="stat-icon licenses">
+                                <i class="fas fa-key"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.total_licenses or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Tüm yazılımlar dahil</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card licenses">
+                        <div class="stat-header">
+                            <span class="stat-title">Aktif Lisanslar</span>
+                            <div class="stat-icon licenses">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.active_licenses or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Kullanılabilir durumda</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card alerts">
+                        <div class="stat-header">
+                            <span class="stat-title">Yakında Dolacak</span>
+                            <div class="stat-icon alerts">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.expiring_soon or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">30 gün içinde</span>
+                        </div>
+                    </div>
+
+                    <div class="stat-card alerts">
+                        <div class="stat-header">
+                            <span class="stat-title">Süresi Dolmuş</span>
+                            <div class="stat-icon alerts">
+                                <i class="fas fa-times-circle"></i>
+                            </div>
+                        </div>
+                        <div class="stat-number">{{ stats.expired_licenses or 0 }}</div>
+                        <div class="stat-details">
+                            <span class="stat-detail">Yenileme gerekli</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cards-row">
+                    <!-- Recent Licenses -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span><i class="fas fa-key"></i> Son Eklenen Lisanslar</span>
+                            <span>{{ recent_licenses|length if recent_licenses else 0 }} kayıt</span>
+                        </div>
+                        <div class="card-body">
+                            {% if recent_licenses %}
+                                {% for license in recent_licenses %}
+                                    <div class="license-item">
+                                        <div class="item-icon license">
+                                            <i class="fas fa-key"></i>
+                                        </div>
+                                        <div class="item-info">
+                                            <h4>{{ license.software_name }}</h4>
+                                            <p>{{ license.vendor or 'Vendor belirtilmemiş' }}</p>
+                                            {% if license.expiration_date %}
+                                                <p>Bitiş: {{ license.expiration_date.strftime('%d.%m.%Y') }}</p>
+                                            {% endif %}
+                                        </div>
+                                        <span class="status-badge status-{{ license.status }}">
+                                            {% if license.status == 'active' %}Aktif
+                                            {% elif license.status == 'expired' %}Süresi Dolmuş
+                                            {% else %}{{ license.status }}
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                {% endfor %}
+                                <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee;">
+                                    <a href="{{ url_for('main.admin_licenses') }}" style="color: #ffc107; text-decoration: none; font-weight: 500;">
+                                        Tümünü Gör <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="fas fa-key"></i>
+                                    <h4>Henüz Lisans Yok</h4>
+                                    <p>İlk lisansı eklemek için yukarıdaki butonu kullanın.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Expiring Licenses -->
+                    <div class="card">
+                        <div class="card-header">
+                            <span><i class="fas fa-exclamation-triangle"></i> Süresi Yaklaşan Lisanslar</span>
+                            <span>{{ expiring_licenses|length if expiring_licenses else 0 }} kayıt</span>
+                        </div>
+                        <div class="card-body">
+                            {% if expiring_licenses %}
+                                {% for license in expiring_licenses %}
+                                    <div class="license-item warning">
+                                        <div class="item-icon warning">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </div>
+                                        <div class="item-info">
+                                            <h4>{{ license.software_name }}</h4>
+                                            <p>{{ license.vendor or 'Vendor belirtilmemiş' }}</p>
+                                            <p>Bitiş: {{ license.expiration_date.strftime('%d.%m.%Y') if license.expiration_date }}</p>
+                                        </div>
+                                        <span class="status-badge status-expiring">
+                                            {{ license.days_until_expiry }} gün
+                                        </span>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="empty-state">
+                                    <i class="fas fa-check-circle"></i>
+                                    <h4>Tüm Lisanslar Güncel</h4>
+                                    <p>Yakın zamanda süresi dolacak lisans yok.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/inventory_dashboard.js') }}"></script>
+
+</html>

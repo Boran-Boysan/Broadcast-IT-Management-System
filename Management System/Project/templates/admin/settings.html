@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ayarlar</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-theme="light">
+
+        <div class="settings-header">
+            <h1 id="page-title">Ayarlar</h1>
+            <p id="page-subtitle">Kişiselleştirme ve tercihler</p>
+            <br>
+            <button class="btn btn-back" id="back-to-dashboard">
+                <i class="fas fa-arrow-left"></i>
+                <span id="back-text">Dashboard'a Dön</span>
+            </button>
+        </div>
+
+        <div class="settings-grid">
+            <!-- Dark Mode Ayarları -->
+            <div class="setting-card">
+                <div class="setting-row">
+                    <div class="setting-header">
+                        <div class="setting-icon">🌙</div>
+                        <div class="setting-info">
+                            <h3 id="dark-mode-title">Karanlık Mod</h3>
+                            <p id="dark-mode-desc">Gözlerinizi koruyun ve batarya tasarrufu yapın</p>
+                        </div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="dark-mode-toggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Dil Ayarları -->
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🌐</div>
+                    <div class="setting-info">
+                        <h3 id="language-title">Dil Seçimi</h3>
+                        <p id="language-desc">Site dilini değiştirin</p>
+                    </div>
+                </div>
+
+                <div class="language-selector">
+                    <div class="language-option active" data-lang="tr">
+                        <span class="language-flag">🇹🇷</span>
+                        <div class="language-name">Türkçe</div>
+                    </div>
+                    <div class="language-option" data-lang="en">
+                        <span class="language-flag">🇺🇸</span>
+                        <div class="language-name">English</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ek Ayarlar -->
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">🔧</div>
+                    <div class="setting-info">
+                        <h3 id="additional-title">Ek Ayarlar</h3>
+                        <p id="additional-desc">Gelişmiş özellikler ve tercihler</p>
+                    </div>
+                </div>
+
+                <div class="additional-settings">
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label" id="notifications-label">Bildirimler</div>
+                            <div class="setting-description" id="notifications-desc">Push bildirimleri alın</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="notifications-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label" id="animations-label">Animasyonlar</div>
+                            <div class="setting-description" id="animations-desc">Sayfa geçiş animasyonları</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="animations-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="setting-item">
+                        <div>
+                            <div class="setting-label" id="autosave-label">Otomatik Kaydet</div>
+                            <div class="setting-description" id="autosave-desc">Değişiklikleri otomatik kaydet</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="autosave-toggle" checked>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Durum Bilgisi -->
+            <div class="setting-card">
+                <div class="setting-header">
+                    <div class="setting-icon">📊</div>
+                    <div class="setting-info">
+                        <h3 id="status-title">Sistem Durumu</h3>
+                        <p id="status-desc">Geçerli ayarlar ve sistem bilgisi</p>
+                    </div>
+                </div>
+
+                <div class="additional-settings">
+                    <div class="setting-item">
+                        <div class="setting-label" id="theme-status">Tema: <span id="current-theme">Açık Mod</span><span class="status-indicator status-active"></span></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label" id="lang-status">Dil: <span id="current-lang">Türkçe</span><span class="status-indicator status-active"></span></div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-label" id="save-status">Son Kayıt: <span id="last-save">Az önce</span></div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-primary" id="save-btn">💾 Ayarları Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/options.js') }}"></script>
+</body>
+</html>

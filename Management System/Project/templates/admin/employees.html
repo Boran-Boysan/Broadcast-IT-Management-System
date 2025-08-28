@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çalışan Yönetimi - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}" class="active">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">Çalışan Yönetimi</h1>
+                <a href="{{ url_for('main.admin_add_employee') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i>
+                    Yeni Çalışan Ekle
+                </a>
+            </div>
+
+            <!-- Employee Count -->
+            <div class="employee-count">
+                <div>
+                    <strong>Toplam {{ employees|length }} çalışan listeleniyor</strong>
+                    {% if search or department_filter or role_filter %}
+                        <span style="opacity: 0.8; font-size: 0.9rem; margin-left: 10px;">
+                            (Filtrelenmiş sonuçlar)
+                        </span>
+                    {% endif %}
+                </div>
+                {% if search or department_filter or role_filter %}
+                    <a href="{{ url_for('main.admin_employees') }}" style="color: white; text-decoration: none; opacity: 0.8;">
+                        <i class="fas fa-times"></i> Filtreleri Temizle
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Search and Filters -->
+            <div class="search-filters">
+                <form method="GET" action="{{ url_for('main.admin_employees') }}">
+                    <div class="filter-row">
+                        <div class="form-group">
+                            <label for="search">Arama</label>
+                            <input type="text"
+                                   id="search"
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Ad, soyad veya e-posta ile ara..."
+                                   value="{{ search }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="department">Departman</label>
+                            <select id="department" name="department" class="form-control">
+                                <option value="">Tüm Departmanlar</option>
+                                {% for dept in departments %}
+                                    <option value="{{ dept }}" {% if dept == department_filter %}selected{% endif %}>
+                                        {{ dept }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="role">Rol</label>
+                            <select id="role" name="role" class="form-control">
+                                <option value="">Tüm Roller</option>
+                                <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                                <option value="manager" {% if role_filter == 'manager' %}selected{% endif %}>Manager</option>
+                                <option value="user" {% if role_filter == 'user' %}selected{% endif %}>User</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                            Filtrele
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Employees Table -->
+            <div class="employees-table">
+                <div class="table-header">
+                    <h3><i class="fas fa-users"></i> Çalışan Listesi</h3>
+                    <span>{{ employees|length }} kayıt</span>
+                </div>
+
+                {% if employees %}
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Çalışan</th>
+                                    <th>E-posta</th>
+                                    <th>Departman</th>
+                                    <th>Rol</th>
+                                    <th>Katılım Tarihi</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for employee in employees %}
+                                    <tr>
+                                        <td>
+                                            <div class="employee-info">
+                                                <div class="employee-avatar">
+                                                    {{ employee.name[0] }}{{ employee.surname[0] }}
+                                                </div>
+                                                <div class="employee-details">
+                                                    <h4>{{ employee.name }} {{ employee.surname }}</h4>
+                                                    <p>ID: {{ employee.employee_id }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ employee.email }}</td>
+                                        <td>{{ employee.department or 'Belirtilmemiş' }}</td>
+                                        <td>
+                                            <span class="role-badge role-{{ employee.role }}">
+                                                {{ employee.role|title }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if employee.data_joined %}
+                                                {{ employee.data_joined.strftime('%d.%m.%Y') }}
+                                                <br>
+                                                <small style="color: #999;">{{ employee.data_joined.strftime('%H:%M') }}</small>
+                                            {% else %}
+                                                <span style="color: #999;">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="actions">
+                                                <a href="{{ url_for('main.admin_view_employee', employee_id=employee.employee_id) }}"
+                                                   class="btn btn-info" title="Görüntüle">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{{ url_for('main.admin_edit_employee', employee_id=employee.employee_id) }}"
+                                                   class="btn btn-warning" title="Düzenle">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                {% if employee.employee_id != current_user.employee_id %}
+                                                    <form method="POST"
+                                                          action="{{ url_for('main.admin_delete_employee', employee_id=employee.employee_id) }}"
+                                                          style="display: inline;"
+                                                          onsubmit="return confirm('{{ employee.name }} {{ employee.surname }} adlı çalışanı silmek istediğinizden emin misiniz?')">
+                                                        <button type="submit" class="btn btn-danger" title="Sil">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                {% endif %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="no-results">
+                        <i class="fas fa-users-slash"></i>
+                        <h3>Çalışan Bulunamadı</h3>
+                        <p>Arama kriterlerinize uygun çalışan bulunamadı.</p>
+                        {% if search or department_filter or role_filter %}
+                            <p>
+                                <a href="{{ url_for('main.admin_employees') }}" style="color: #667eea;">
+                                    Filtreleri temizleyip tüm çalışanları görüntüle
+                                </a>
+                            </p>
+                        {% else %}
+                            <p>
+                                <a href="{{ url_for('main.admin_add_employee') }}" class="btn btn-primary" style="margin-top: 15px;">
+                                    <i class="fas fa-plus"></i> İlk Çalışanı Ekle
+                                </a>
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/employees.js') }}"></script>
+</body>
+</html>

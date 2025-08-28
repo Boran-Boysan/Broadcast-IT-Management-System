@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çalışan Düzenle - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}" class="active">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">Çalışan Düzenle</h1>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('main.admin_employees') }}">Çalışanlar</a> /
+                    <span>{{ employee.name }} {{ employee.surname }}</span>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="form-header">
+                    <h2><i class="fas fa-user-edit"></i> Çalışan Bilgilerini Düzenle</h2>
+                </div>
+
+                <!-- Current Employee Info -->
+                <div class="employee-current-info">
+                    <div class="employee-avatar-large">
+                        {{ employee.name[0] }}{{ employee.surname[0] }}
+                    </div>
+                    <div class="employee-current-details">
+                        <h3>{{ employee.name }} {{ employee.surname }}</h3>
+                        <p>{{ employee.email }} • {{ employee.role|title }} • ID: {{ employee.employee_id }}</p>
+                        <p>Katılım: {{ employee.data_joined.strftime('%d.%m.%Y %H:%M') if employee.data_joined else 'Belirtilmemiş' }}</p>
+                    </div>
+                </div>
+
+                <div class="form-body">
+                    <form id="editEmployeeForm" method="POST" action="{{ url_for('main.admin_edit_employee', employee_id=employee.employee_id) }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="name">Ad <span class="required">*</span></label>
+                                <input type="text"
+                                       id="name"
+                                       name="name"
+                                       class="form-control"
+                                       required
+                                       maxlength="30"
+                                       value="{{ employee.name }}"
+                                       autocomplete="given-name">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="surname">Soyad <span class="required">*</span></label>
+                                <input type="text"
+                                       id="surname"
+                                       name="surname"
+                                       class="form-control"
+                                       required
+                                       maxlength="30"
+                                       value="{{ employee.surname }}"
+                                       autocomplete="family-name">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email">E-posta <span class="required">*</span></label>
+                            <input type="email"
+                                   id="email"
+                                   name="email"
+                                   class="form-control"
+                                   required
+                                   maxlength="50"
+                                   value="{{ employee.email }}"
+                                   autocomplete="email">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="department">Departman</label>
+                                <select id="department" name="department" class="form-control">
+                                    <option value="">Departman seçin (opsiyonel)</option>
+                                    <option value="IT" {% if employee.department == 'IT' %}selected{% endif %}>Bilgi İşlem (IT)</option>
+                                    <option value="Broadcast" {% if employee.department == 'Broadcast' %}selected{% endif %}>Yayın Teknolojisi</option>
+                                    <option value="Engineering" {% if employee.department == 'Engineering' %}selected{% endif %}>Mühendislik</option>
+                                    <option value="Production" {% if employee.department == 'Production' %}selected{% endif %}>Prodüksiyon</option>
+                                    <option value="News" {% if employee.department == 'News' %}selected{% endif %}>Haber</option>
+                                    <option value="Sports" {% if employee.department == 'Sports' %}selected{% endif %}>Spor</option>
+                                    <option value="Programs" {% if employee.department == 'Programs' %}selected{% endif %}>Program</option>
+                                    <option value="Technical" {% if employee.department == 'Technical' %}selected{% endif %}>Teknik</option>
+                                    <option value="HR" {% if employee.department == 'HR' %}selected{% endif %}>İnsan Kaynakları</option>
+                                    <option value="Finance" {% if employee.department == 'Finance' %}selected{% endif %}>Finans</option>
+                                    <option value="Legal" {% if employee.department == 'Legal' %}selected{% endif %}>Hukuk</option>
+                                    <option value="Marketing" {% if employee.department == 'Marketing' %}selected{% endif %}>Pazarlama</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="role">Rol <span class="required">*</span></label>
+                                <select id="role" name="role" class="form-control" required>
+                                    <option value="">Rol seçin</option>
+                                    <option value="user" {% if employee.role == 'user' %}selected{% endif %}>Kullanıcı (User)</option>
+                                    <option value="manager" {% if employee.role == 'manager' %}selected{% endif %}>Müdür (Manager)</option>
+                                    <option value="admin" {% if employee.role == 'admin' %}selected{% endif %}>Yönetici (Admin)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Password Change Section -->
+                        <div class="password-section">
+                            <h4><i class="fas fa-key"></i> Şifre Değiştir</h4>
+                            <p>Şifre değiştirmek istemiyorsanız bu alanı boş bırakın.</p>
+
+                            <div class="form-group">
+                                <label for="new_password">Yeni Şifre</label>
+                                <input type="password"
+                                       id="new_password"
+                                       name="new_password"
+                                       class="form-control"
+                                       placeholder="Yeni şifre girin (opsiyonel)"
+                                       autocomplete="new-password">
+                                <div id="passwordStrength" class="password-strength"></div>
+                            </div>
+                        </div>
+
+                        <div class="btn-container">
+                            <button type="submit" class="btn btn-warning" id="submitBtn">
+                                <i class="fas fa-save"></i>
+                                Değişiklikleri Kaydet
+                            </button>
+
+                            <a href="{{ url_for('main.admin_view_employee', employee_id=employee.employee_id) }}" class="btn btn-secondary">
+                                <i class="fas fa-eye"></i>
+                                Görüntüle
+                            </a>
+
+                            <a href="{{ url_for('main.admin_employees') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i>
+                                Geri Dön
+                            </a>
+                        </div>
+                    </form>
+
+                    <!-- Danger Zone -->
+                    {% if employee.employee_id != current_user.employee_id %}
+                    <div class="danger-zone">
+                        <h4><i class="fas fa-exclamation-triangle"></i> Tehlikeli İşlemler</h4>
+                        <p>Bu çalışanı sistemden tamamen kaldırmak istiyorsanız aşağıdaki butonu kullanın. Bu işlem geri alınamaz!</p>
+
+                        <form method="POST"
+                              action="{{ url_for('main.admin_delete_employee', employee_id=employee.employee_id) }}"
+                              style="display: inline;"
+                              onsubmit="return confirmDelete()">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i>
+                                Çalışanı Sil
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/edit_employee.js') }}"></script>
+
+</body>
+</html>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Logları - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_logs') }}" class="active">
+                <i class="fas fa-history"></i>
+                <span>Sistem Kayıtları</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <div class="header-left">
+                    <h1><i class="fas fa-history"></i> Sistem Logları</h1>
+                    <p>Sistem hareketleri ve kullanıcı işlem kayıtları</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" onclick="exportLogs('csv')">
+                        <i class="fas fa-file-csv"></i> CSV İndir
+                    </button>
+                    <button class="btn btn-info" onclick="exportLogs('json')">
+                        <i class="fas fa-code"></i> JSON İndir
+                    </button>
+                    <button class="btn btn-primary" onclick="refreshLogs()">
+                        <i class="fas fa-sync-alt"></i> Yenile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="filter-section">
+                <form method="GET" action="{{ url_for('main.admin_logs') }}" class="filter-form">
+                    <div class="filter-grid">
+                        <div class="filter-group">
+                            <label for="user">Kullanıcı</label>
+                            <select name="user" id="user" class="form-control">
+                                <option value="">Tüm Kullanıcılar</option>
+                                {% for user in users %}
+                                <option value="{{ user.employee_id }}"
+                                    {{ 'selected' if user_filter == user.employee_id|string }}>
+                                    {{ user.name }} {{ user.surname }} ({{ user.role|title }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="action">İşlem Türü</label>
+                            <select name="action" id="action" class="form-control">
+                                <option value="">Tüm İşlemler</option>
+                                {% for action in actions %}
+                                <option value="{{ action }}" {{ 'selected' if action_filter == action }}>
+                                    {% if action == 'add' %}Ekleme
+                                    {% elif action == 'delete' %}Silme
+                                    {% elif action == 'view' %}Görüntüleme
+                                    {% elif action == 'update' %}Güncelleme
+                                    {% elif action == 'login' %}Giriş
+                                    {% elif action == 'logout' %}Çıkış
+                                    {% elif action == 'assign' %}Atama
+                                    {% elif action == 'unassign' %}Atama Kaldırma
+                                    {% elif action == 'download' %}İndirme
+                                    {% elif action == 'upload' %}Yükleme
+                                    {% elif action == 'start' %}Başlatma
+                                    {% elif action == 'stop' %}Durdurma
+                                    {% elif action == 'export' %}Dışa Aktarma
+                                    {% elif action == 'create' %}Oluşturma
+                                    {% else %}{{ action|title }}
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="table">Modül</label>
+                            <select name="table" id="table" class="form-control">
+                                <option value="">Tüm Modüller</option>
+                                {% for table in tables %}
+                                <option value="{{ table }}" {{ 'selected' if table_filter == table }}>
+                                    {% if table == 'employee' %}Çalışanlar
+                                    {% elif table == 'equipment' %}Donanım
+                                    {% elif table == 'software_license' %}Lisanslar
+                                    {% elif table == 'knowledge_base' %}Bilgi Bankası
+                                    {% elif table == 'dashboard' %}Dashboard
+                                    {% elif table == 'logs' %}Sistem Logları
+                                    {% else %}{{ table|title }}
+                                    {% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label for="date">Tarih</label>
+                            <input type="date" name="date" id="date" value="{{ date_filter }}" class="form-control">
+                        </div>
+                    </div>
+
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Filtrele
+                        </button>
+                        <a href="{{ url_for('main.admin_logs') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Temizle
+                        </a>
+                        <button type="button" class="btn btn-warning" onclick="showClearLogsModal()">
+                            <i class="fas fa-trash-alt"></i> Eski Logları Temizle
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Logs Container -->
+            <div class="logs-container">
+                <div class="logs-header">
+                    <div class="logs-title">
+                        <i class="fas fa-list"></i> İşlem Kayıtları
+                    </div>
+                    <div class="logs-count">
+                        Toplam: {{ logs|length }} kayıt
+                        {% if action_filter or table_filter or user_filter or date_filter %}
+                        <small>(filtrelenmiş)</small>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {% if logs %}
+                <div class="table-responsive">
+                    <table class="logs-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Tarih & Saat</th>
+                                <th>Kullanıcı</th>
+                                <th>İşlem</th>
+                                <th>Modül</th>
+                                <th>Hedef ID</th>
+                                <th>Açıklama</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td class="log-id">{{ log.log_id }}</td>
+                                <td class="timestamp">
+                                    {{ log.action_time.strftime('%d.%m.%Y %H:%M:%S') }}
+                                </td>
+                                <td>
+                                    <div class="user-badge">
+                                        {% if log.employee %}
+                                            {% if log.employee.role == 'admin' %}
+                                                <i class="fas fa-user-shield text-danger"></i>
+                                            {% elif log.employee.role == 'manager' %}
+                                                <i class="fas fa-user-tie text-warning"></i>
+                                            {% else %}
+                                                <i class="fas fa-user text-info"></i>
+                                            {% endif %}
+                                            <span>{{ log.employee.name }} {{ log.employee.surname }}</span>
+                                            <small class="user-role">({{ log.employee.role|title }})</small>
+                                        {% else %}
+                                            <i class="fas fa-cog text-muted"></i>
+                                            <span>Sistem</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="action-badge action-{{ log.action_type }}">
+                                        {% if log.action_type == 'add' %}
+                                            <i class="fas fa-plus"></i> Ekleme
+                                        {% elif log.action_type == 'delete' %}
+                                            <i class="fas fa-trash"></i> Silme
+                                        {% elif log.action_type == 'view' %}
+                                            <i class="fas fa-eye"></i> Görüntüleme
+                                        {% elif log.action_type == 'update' %}
+                                            <i class="fas fa-edit"></i> Güncelleme
+                                        {% elif log.action_type == 'login' %}
+                                            <i class="fas fa-sign-in-alt"></i> Giriş
+                                        {% elif log.action_type == 'logout' %}
+                                            <i class="fas fa-sign-out-alt"></i> Çıkış
+                                        {% elif log.action_type == 'assign' %}
+                                            <i class="fas fa-link"></i> Atama
+                                        {% elif log.action_type == 'unassign' %}
+                                            <i class="fas fa-unlink"></i> Atama Kaldırma
+                                        {% elif log.action_type == 'download' %}
+                                            <i class="fas fa-download"></i> İndirme
+                                        {% elif log.action_type == 'upload' %}
+                                            <i class="fas fa-upload"></i> Yükleme
+                                        {% elif log.action_type == 'start' %}
+                                            <i class="fas fa-play"></i> Başlatma
+                                        {% elif log.action_type == 'stop' %}
+                                            <i class="fas fa-stop"></i> Durdurma
+                                        {% elif log.action_type == 'export' %}
+                                            <i class="fas fa-file-export"></i> Export
+                                        {% elif log.action_type == 'create' %}
+                                            <i class="fas fa-plus-circle"></i> Oluşturma
+                                        {% else %}
+                                            <i class="fas fa-cog"></i> {{ log.action_type|title }}
+                                        {% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if log.target_table %}
+                                    <span class="module-badge module-{{ log.target_table }}">
+                                        {% if log.target_table == 'employee' %}
+                                            <i class="fas fa-users"></i> Çalışanlar
+                                        {% elif log.target_table == 'equipment' %}
+                                            <i class="fas fa-laptop"></i> Donanım
+                                        {% elif log.target_table == 'software_license' %}
+                                            <i class="fas fa-certificate"></i> Lisanslar
+                                        {% elif log.target_table == 'knowledge_base' %}
+                                            <i class="fas fa-book"></i> Bilgi Bankası
+                                        {% elif log.target_table == 'dashboard' %}
+                                            <i class="fas fa-chart-line"></i> Dashboard
+                                        {% elif log.target_table == 'logs' %}
+                                            <i class="fas fa-history"></i> Sistem Logları
+                                        {% else %}
+                                            <i class="fas fa-database"></i> {{ log.target_table|title }}
+                                        {% endif %}
+                                    </span>
+                                    {% else %}
+                                    <span class="module-badge module-system">
+                                        <i class="fas fa-cog"></i> Sistem
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="target-id">
+                                    {% if log.target_id %}
+                                        <code>#{{ log.target_id }}</code>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="action-description">
+                                    {{ log.description or 'Açıklama belirtilmemiş' }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if logs|length >= 500 %}
+                <div class="pagination">
+                    <a href="#" class="active">1</a>
+                    <a href="#">2</a>
+                    <a href="#">3</a>
+                    <a href="#">...</a>
+                    <span class="text-muted">Sadece son 500 kayıt gösteriliyor</span>
+                </div>
+                {% endif %}
+
+                {% else %}
+                <div class="no-logs">
+                    <div class="no-logs-content">
+                        <i class="fas fa-inbox"></i>
+                        <h3>Log Kaydı Bulunamadı</h3>
+                        <p>
+                            {% if action_filter or table_filter or user_filter or date_filter %}
+                                Seçilen filtrelere uygun log kaydı bulunamadı. Farklı kriterler deneyebilirsiniz.
+                            {% else %}
+                                Henüz sistem log kaydı bulunmuyor.
+                            {% endif %}
+                        </p>
+                        {% if action_filter or table_filter or user_filter or date_filter %}
+                        <a href="{{ url_for('main.admin_logs') }}" class="btn btn-primary">
+                            <i class="fas fa-times"></i> Filtreleri Temizle
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Log Statistics -->
+            {% if logs %}
+            <div class="log-statistics">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <i class="fas fa-plus text-success"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'add') | list | length }}</h4>
+                            <p>Ekleme İşlemi</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-eye text-info"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'view') | list | length }}</h4>
+                            <p>Görüntüleme</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-edit text-warning"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'update') | list | length }}</h4>
+                            <p>Güncelleme</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-trash text-danger"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'delete') | list | length }}</h4>
+                            <p>Silme</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-sign-in-alt text-primary"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'login') | list | length }}</h4>
+                            <p>Giriş</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-download text-info"></i>
+                        <div class="stat-info">
+                            <h4>{{ logs | selectattr('action_type', 'equalto', 'download') | list | length }}</h4>
+                            <p>İndirme</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- System Status Info -->
+            <div class="system-status">
+                <div class="card">
+                    <div class="card-header primary">
+                        <i class="fas fa-info-circle"></i> Sistem Bilgileri
+                    </div>
+                    <div class="card-body">
+                        <div class="system-grid">
+                            <div class="system-item">
+                                <div class="system-icon success">
+                                    <i class="fas fa-database"></i>
+                                </div>
+                                <h4 class="system-title success">Veritabanı</h4>
+                                <p class="system-status-text">Aktif ve Sağlıklı</p>
+                            </div>
+                            <div class="system-item">
+                                <div class="system-icon primary">
+                                    <i class="fas fa-server"></i>
+                                </div>
+                                <h4 class="system-title primary">Sunucu</h4>
+                                <p class="system-status-text">Çalışıyor</p>
+                            </div>
+                            <div class="system-item">
+                                <div class="system-icon info">
+                                    <i class="fas fa-clock"></i>
+                                </div>
+                                <h4 class="system-title info">Son Güncelleme</h4>
+                                <p class="system-status-text" id="last-update-time">Az önce</p>
+                            </div>
+                            <div class="system-item">
+                                <div class="system-icon success">
+                                    <i class="fas fa-shield-alt"></i>
+                                </div>
+                                <h4 class="system-title success">Güvenlik</h4>
+                                <p class="system-status-text">Korumalı</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Clear Logs Modal -->
+    <div id="clearLogsModal" class="modal">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3 class="modal-title">Eski Logları Temizle</h3>
+                <button class="modal-close" onclick="closeClearLogsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Belirtilen günden eski log kayıtları silinecektir. Bu işlem geri alınamaz!</p>
+                <div class="form-group">
+                    <label for="clearDays">Kaç günden eski kayıtlar silinsin?</label>
+                    <select id="clearDays" class="form-control">
+                        <option value="30">30 gün</option>
+                        <option value="60">60 gün</option>
+                        <option value="90" selected>90 gün</option>
+                        <option value="180">180 gün</option>
+                        <option value="365">1 yıl</option>
+                    </select>
+                </div>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Bu işlem geri alınamaz! Lütfen emin olduğunuzdan sonra devam edin.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeClearLogsModal()">İptal</button>
+                <button class="btn btn-danger" onclick="clearOldLogs()">
+                    <i class="fas fa-trash-alt"></i> Logları Temizle
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function refreshLogs() {
+            window.location.reload();
+        }
+
+        function exportLogs(format) {
+            const url = new URL(window.location);
+            const params = new URLSearchParams(url.search);
+            params.set('format', format);
+
+            const exportUrl = `{{ url_for('main.admin_logs_export') }}?${params.toString()}`;
+
+            if (format === 'json') {
+                window.open(exportUrl, '_blank');
+            } else {
+                // For CSV, trigger download
+                const link = document.createElement('a');
+                link.href = exportUrl;
+                link.download = `system_logs_${new Date().toISOString().split('T')[0]}.${format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            showNotification(`Log verileri ${format.toUpperCase()} formatında export ediliyor...`, 'info');
+        }
+
+        function showClearLogsModal() {
+            document.getElementById('clearLogsModal').style.display = 'flex';
+        }
+
+        function closeClearLogsModal() {
+            document.getElementById('clearLogsModal').style.display = 'none';
+        }
+
+        async function clearOldLogs() {
+            const days = document.getElementById('clearDays').value;
+
+            if (!confirm(`${days} günden eski tüm log kayıtları silinecek. Emin misiniz?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('{{ url_for("main.admin_logs_clear") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ days: parseInt(days) })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    showNotification(data.message, 'success');
+                    closeClearLogsModal();
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    showNotification(data.message, 'error');
+                }
+            } catch (error) {
+                showNotification('Temizleme işlemi sırasında hata oluştu: ' + error.message, 'error');
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            const existingNotifications = document.querySelectorAll('.notification');
+            existingNotifications.forEach(n => n.remove());
+
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <div class="notification-header">
+                    <span class="notification-title">
+                        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : type === 'success' ? 'check-circle' : 'info-circle'}"></i>
+                        ${type === 'error' ? 'Hata' : type === 'success' ? 'Başarılı' : 'Bilgi'}
+                    </span>
+                    <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="notification-body">${message}</div>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Show notification
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 100);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.classList.remove('show');
+                    setTimeout(() => {
+                        if (notification.parentNode) {
+                            notification.remove();
+                        }
+                    }, 300);
+                }
+            }, 5000);
+        }
+
+        function updateLastUpdateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('tr-TR', {
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            document.getElementById('last-update-time').textContent = timeString;
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('show');
+
+            if (sidebar.classList.contains('show')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'sidebar-overlay show';
+                overlay.onclick = () => {
+                    sidebar.classList.remove('show');
+                    overlay.remove();
+                };
+                document.body.appendChild(overlay);
+            }
+        }
+
+        // Auto refresh every 60 seconds if no filters applied
+        let autoRefresh = setInterval(function() {
+            const url = new URL(window.location);
+            if (!url.search) {
+                updateLastUpdateTime();
+                // Only full refresh every 5 minutes
+                if (new Date().getMinutes() % 5 === 0) {
+                    refreshLogs();
+                }
+            }
+        }, 60000);
+
+        // Stop auto refresh when user interacts with filters
+        document.querySelectorAll('select, input').forEach(element => {
+            element.addEventListener('change', function() {
+                clearInterval(autoRefresh);
+            });
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('clearLogsModal');
+            if (event.target === modal) {
+                closeClearLogsModal();
+            }
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            updateLastUpdateTime();
+
+            // Update time every minute
+            setInterval(updateLastUpdateTime, 60000);
+        });
+    </script>
+</body>
+</html>

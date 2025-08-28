@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giriş Yap</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+
+<body class="login-page">
+    <div class="login-container">
+        <div class="container">
+            <h1>Giriş Yap</h1>
+
+            <div class="form-info primary">
+                <p>Çalışan kimlik bilgileriniz ile sisteme giriş yapın.</p>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'danger' else 'success' }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST" id="loginForm">
+                <div class="form-group">
+                    <label for="username">E-posta veya Kullanıcı Adı *</label>
+                    <input type="text" id="username" name="username" required maxlength="50"
+                           placeholder="E-posta veya kullanıcı adınızı girin" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Şifre *</label>
+                    <input type="password" id="password" name="password" required
+                           placeholder="Şifrenizi girin" class="form-control">
+                </div>
+
+                <div class="form-options">
+                    <div class="remember-me">
+                        <input type="checkbox" id="remember" name="remember">
+                        <label for="remember">Beni Hatırla</label>
+                    </div>
+                    <a href="#" class="forgot-password">Şifremi Unuttum?</a>
+                </div>
+
+                <div class="btn-container">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Giriş Yap
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin_dashboard.js') }}"></script>
+</body>
+</html>

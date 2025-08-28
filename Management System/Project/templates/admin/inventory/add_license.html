@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lisans Ekle - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}" class="active">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">
+                    <div class="license-icon">
+                        <i class="fas fa-key"></i>
+                    </div>
+                    Yeni Lisans Ekle
+                </h1>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('main.admin_inventory_dashboard') }}">Envanter</a> /
+                    <a href="{{ url_for('main.admin_licenses') }}">Lisanslar</a>
+                    <span>Yeni Lisans</span>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="form-header">
+                    <h2><i class="fas fa-certificate"></i> Yazılım Lisans Bilgileri</h2>
+                </div>
+
+                <div class="form-body">
+                    <div class="form-info">
+                        <p><strong>Bilgi:</strong> Tüm zorunlu alanları (*) doldurun. Lisans anahtarı benzersiz olmalıdır.</p>
+                    </div>
+
+                    <form id="licenseForm" method="POST" action="{{ url_for('main.admin_add_license') }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="software_name">Yazılım Adı <span class="required">*</span></label>
+                                <input type="text"
+                                       id="software_name"
+                                       name="software_name"
+                                       class="form-control"
+                                       required
+                                       maxlength="50"
+                                       placeholder="Örn: Adobe Premiere Pro, Microsoft Office">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="vendor">Vendor</label>
+                                <select id="vendor" name="vendor" class="form-control">
+                                    <option value="">Vendor seçin (opsiyonel)</option>
+                                    <option value="Adobe">Adobe</option>
+                                    <option value="Microsoft">Microsoft</option>
+                                    <option value="Vizrt">Vizrt</option>
+                                    <option value="Avid">Avid Technology</option>
+                                    <option value="Blackmagic">Blackmagic Design</option>
+                                    <option value="Grass Valley">Grass Valley</option>
+                                    <option value="Harmonic">Harmonic</option>
+                                    <option value="EVS">EVS Broadcast Equipment</option>
+                                    <option value="Ross Video">Ross Video</option>
+                                    <option value="Evertz">Evertz</option>
+                                    <option value="Other">Diğer</option>
+                                </select>
+                                <div id="vendorPreview" class="vendor-preview"></div>
+                            </div>
+                        </div>
+
+                        <!-- License Key Section -->
+                        <div class="license-key-section">
+                            <h4><i class="fas fa-key"></i> Lisans Anahtarı</h4>
+                            <div class="license-key-input">
+                                <label for="license_key">Lisans Anahtarı <span class="required">*</span></label>
+                                <input type="text"
+                                       id="license_key"
+                                       name="license_key"
+                                       class="form-control"
+                                       required
+                                       maxlength="255"
+                                       placeholder="Lisans anahtarını girin"
+                                       autocomplete="off">
+                                <div class="key-generator">
+                                    <button type="button" class="btn-generate" onclick="generateSampleKey()">
+                                        <i class="fas fa-random"></i> Örnek Anahtar
+                                    </button>
+                                    <small style="color: #856404;">Test için örnek anahtar oluştur</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="version">Versiyon</label>
+                                <input type="text"
+                                       id="version"
+                                       name="version"
+                                       class="form-control"
+                                       maxlength="50"
+                                       placeholder="Örn: 2023, v14.5, CC 2024">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="expiration_date">Son Kullanma Tarihi</label>
+                                <input type="date"
+                                       id="expiration_date"
+                                       name="expiration_date"
+                                       class="form-control">
+                                <div id="expiryWarning" class="expiry-warning"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="status">Durum <span class="required">*</span></label>
+                                <select id="status" name="status" class="form-control" required>
+                                    <option value="">Durum seçin</option>
+                                    <option value="active">Aktif</option>
+                                    <option value="expired">Süresi Dolmuş</option>
+                                    <option value="cancelled">İptal Edilmiş</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="assigned_to">Atanan Kişi</label>
+                                <select id="assigned_to" name="assigned_to" class="form-control">
+                                    <option value="">Kimseye atanmamış</option>
+                                    {% for employee in employees %}
+                                        <option value="{{ employee.employee_id }}">
+                                            {{ employee.name }} {{ employee.surname }} - {{ employee.department or 'Departman Yok' }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="equipment_id">Yüklendiği Ekipman</label>
+                            <select id="equipment_id" name="equipment_id" class="form-control">
+                                <option value="">Hiçbir ekipmanda yüklü değil</option>
+                                {% for equipment in equipment_list %}
+                                    <option value="{{ equipment.equipment_id }}">
+                                        {{ equipment.equipment_name }} - {{ equipment.brand }} {{ equipment.model }}
+                                        {% if equipment.location %}({{ equipment.location }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="btn-container">
+                            <button type="submit" class="btn btn-info" id="submitBtn">
+                                <i class="fas fa-save"></i>
+                                Lisans Ekle
+                            </button>
+
+                            <a href="{{ url_for('main.admin_licenses') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                İptal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/add_license.js') }}"></script>
+</body>
+</html>

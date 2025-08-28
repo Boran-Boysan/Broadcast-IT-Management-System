@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekipman Düzenle - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}" class="active">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">>
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">
+                    <div class="equipment-icon">
+                        <i class="fas fa-edit"></i>
+                    </div>
+                    Ekipman Düzenle
+                </h1>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('main.admin_inventory_dashboard') }}">Envanter</a> /
+                    <a href="{{ url_for('main.admin_inventory_equipment') }}">Ekipmanlar</a> /
+                    <span>{{ equipment.equipment_name }}</span>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="form-header">
+                    <h2><i class="fas fa-desktop"></i> Ekipman Bilgilerini Düzenle</h2>
+                </div>
+
+                <!-- Current Equipment Info -->
+                <div class="equipment-current-info">
+                    <div class="equipment-avatar">
+                        {% if equipment.category == 'Server' %}
+                            <i class="fas fa-server"></i>
+                        {% elif equipment.category == 'Switch' %}
+                            <i class="fas fa-network-wired"></i>
+                        {% elif equipment.category == 'Camera' %}
+                            <i class="fas fa-video"></i>
+                        {% elif equipment.category == 'PC' or equipment.category == 'Laptop' %}
+                            <i class="fas fa-desktop"></i>
+                        {% else %}
+                            <i class="fas fa-cube"></i>
+                        {% endif %}
+                    </div>
+                    <div class="equipment-current-details">
+                        <h3>{{ equipment.equipment_name }}</h3>
+                        <p>{{ equipment.brand }} {{ equipment.model }} • {{ equipment.category }}</p>
+                        <p>Seri No: {{ equipment.serial_number or 'Belirtilmemiş' }} • ID: {{ equipment.equipment_id }}
+                            <span class="status-badge status-{{ equipment.status.replace('_', '-') }}">
+                                {{ equipment.status_display }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="form-body">
+                    <div class="form-info">
+                        <p><strong>Bilgi:</strong> Ekipman bilgilerini güncelleyin. Değişiklikler hemen aktif olacaktır.</p>
+                    </div>
+
+                    <form id="editEquipmentForm" method="POST" action="{{ url_for('main.admin_edit_equipment', equipment_id=equipment.equipment_id) }}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="equipment_name">Ekipman Adı <span class="required">*</span></label>
+                                <input type="text"
+                                       id="equipment_name"
+                                       name="equipment_name"
+                                       class="form-control"
+                                       required
+                                       maxlength="50"
+                                       value="{{ equipment.equipment_name }}">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="category">Kategori <span class="required">*</span></label>
+                                <select id="category" name="category" class="form-control" required>
+                                    <option value="">Kategori seçin</option>
+                                    <option value="Server" {% if equipment.category == 'Server' %}selected{% endif %}>Sunucu</option>
+                                    <option value="Switch" {% if equipment.category == 'Switch' %}selected{% endif %}>Switch</option>
+                                    <option value="PC" {% if equipment.category == 'PC' %}selected{% endif %}>Bilgisayar</option>
+                                    <option value="Laptop" {% if equipment.category == 'Laptop' %}selected{% endif %}>Laptop</option>
+                                    <option value="Monitor" {% if equipment.category == 'Monitor' %}selected{% endif %}>Monitör</option>
+                                    <option value="Camera" {% if equipment.category == 'Camera' %}selected{% endif %}>Kamera</option>
+                                    <option value="Storage" {% if equipment.category == 'Storage' %}selected{% endif %}>Depolama</option>
+                                    <option value="Network" {% if equipment.category == 'Network' %}selected{% endif %}>Ağ Ekipmanı</option>
+                                    <option value="Audio" {% if equipment.category == 'Audio' %}selected{% endif %}>Ses Ekipmanı</option>
+                                    <option value="Video" {% if equipment.category == 'Video' %}selected{% endif %}>Video Ekipmanı</option>
+                                    <option value="Other" {% if equipment.category == 'Other' %}selected{% endif %}>Diğer</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="brand">Marka</label>
+                                <input type="text"
+                                       id="brand"
+                                       name="brand"
+                                       class="form-control"
+                                       maxlength="50"
+                                       value="{{ equipment.brand or '' }}">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="model">Model</label>
+                                <input type="text"
+                                       id="model"
+                                       name="model"
+                                       class="form-control"
+                                       maxlength="50"
+                                       value="{{ equipment.model or '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="serial_number">Seri Numarası</label>
+                                <input type="text"
+                                       id="serial_number"
+                                       name="serial_number"
+                                       class="form-control"
+                                       maxlength="50"
+                                       value="{{ equipment.serial_number or '' }}">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="purchase_date">Satın Alma Tarihi</label>
+                                <input type="date"
+                                       id="purchase_date"
+                                       name="purchase_date"
+                                       class="form-control"
+                                       value="{{ equipment.purchase_date.strftime('%Y-%m-%d') if equipment.purchase_date else '' }}">
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="status">Durum <span class="required">*</span></label>
+                                <select id="status" name="status" class="form-control" required>
+                                    <option value="">Durum seçin</option>
+                                    <option value="in_stock" {% if equipment.status == 'in_stock' %}selected{% endif %}>Stokta</option>
+                                    <option value="in_use" {% if equipment.status == 'in_use' %}selected{% endif %}>Kullanımda</option>
+                                    <option value="under_repair" {% if equipment.status == 'under_repair' %}selected{% endif %}>Tamirde</option>
+                                    <option value="scrap" {% if equipment.status == 'scrap' %}selected{% endif %}>Hurdaya Çıkarıldı</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="location">Konum</label>
+                                <input type="text"
+                                       id="location"
+                                       name="location"
+                                       class="form-control"
+                                       maxlength="50"
+                                       value="{{ equipment.location or '' }}">
+                            </div>
+                        </div>
+
+                        <!-- Assignment Section -->
+                        <div class="assignment-section">
+                            <h4><i class="fas fa-user-tag"></i> Ekipman Ataması</h4>
+
+                            {% if equipment.assigned_employee %}
+                                <div class="current-assignment">
+                                    <div class="assigned-avatar">
+                                        {{ equipment.assigned_employee.name[0] }}{{ equipment.assigned_employee.surname[0] }}
+                                    </div>
+                                    <div>
+                                        <strong>Şu anda atanan:</strong> {{ equipment.assigned_employee.name }} {{ equipment.assigned_employee.surname }}<br>
+                                        <small>{{ equipment.assigned_employee.department or 'Departman belirtilmemiş' }} - {{ equipment.assigned_employee.email }}</small>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <p style="color: #666; margin-bottom: 15px;">Bu ekipman şu anda kimseye atanmamış.</p>
+                            {% endif %}
+
+                            <div class="form-group">
+                                <label for="assigned_to">Yeni Atama</label>
+                                <select id="assigned_to" name="assigned_to" class="form-control">
+                                    <option value="">Kimseye atanmamış</option>
+                                    {% for employee in employees %}
+                                        <option value="{{ employee.employee_id }}"
+                                                {% if equipment.assigned_to == employee.employee_id %}selected{% endif %}>
+                                            {{ employee.name }} {{ employee.surname }} - {{ employee.department or 'Departman Yok' }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="btn-container">
+                            <button type="submit" class="btn btn-warning" id="submitBtn">
+                                <i class="fas fa-save"></i>
+                                Değişiklikleri Kaydet
+                            </button>
+
+                            <a href="{{ url_for('main.admin_view_equipment', equipment_id=equipment.equipment_id) }}" class="btn btn-info">
+                                <i class="fas fa-eye"></i>
+                                Görüntüle
+                            </a>
+
+                            <a href="{{ url_for('main.admin_inventory_equipment') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i>
+                                Geri Dön
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/edit_equipment.js') }}"></script>
+
+</body>
+</html>

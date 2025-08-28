@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bilgi Bankası - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}" class="active">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_logs') }}">
+                <i class="fas fa-history"></i>
+                <span>Sistem Kayıtları</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname if current_user.surname else '' }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-book" style="margin-right: 15px; color: #667eea;"></i>
+                    Bilgi Bankası
+                </h1>
+                {% if current_user.role in ['admin', 'manager'] %}
+                    <a href="{{ url_for('main.admin_upload_document') }}" class="btn btn-success">
+                        <i class="fas fa-plus"></i>
+                        Doküman Yükle
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Search and Filters -->
+            <div class="filter-section">
+                <form method="GET" class="search-form">
+                    <div class="search-group">
+                        <input type="text"
+                               name="search"
+                               class="search-input"
+                               placeholder="Doküman başlığı veya açıklama ara..."
+                               value="{{ search or '' }}">
+                        <button type="submit" class="search-btn">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+
+                    <div class="filter-group">
+                        <select name="category" class="filter-select">
+                            <option value="">Tüm Kategoriler</option>
+                            {% for category in categories %}
+                                <option value="{{ category }}" {{ 'selected' if category_filter == category else '' }}>{{ category }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <select name="department" class="filter-select">
+                            <option value="">Tüm Departmanlar</option>
+                            {% for department in departments %}
+                                <option value="{{ department }}" {{ 'selected' if department_filter == department else '' }}>{{ department }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <button type="submit" class="filter-btn">
+                            <i class="fas fa-filter"></i> Filtrele
+                        </button>
+
+                        {% if search or category_filter or department_filter %}
+                            <a href="{{ url_for('main.admin_knowledge_base') }}" class="clear-filters">
+                                <i class="fas fa-times"></i> Temizle
+                            </a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <!-- Documents Grid -->
+            <div class="documents-container">
+                <div class="documents-header">
+                    <h3>
+                        <i class="fas fa-folder-open"></i>
+                        Dokümanlar
+                        <span class="count">({{ documents|length }} kayıt)</span>
+                    </h3>
+                </div>
+
+                {% if documents %}
+                    <div class="documents-grid">
+                        {% for document in documents %}
+                            <div class="document-card" onclick="openDocument({{ document.document_id }}, '{{ document.file_path if document.file_path else '' }}')" style="cursor: pointer; transition: all 0.3s ease; position: relative;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 25px rgba(0, 0, 0, 0.15)'; if(this.querySelector('.click-hint')) this.querySelector('.click-hint').style.opacity='1';" onmouseout="this.style.transform=''; this.style.boxShadow=''; if(this.querySelector('.click-hint')) this.querySelector('.click-hint').style.opacity='0';">
+
+                                <div class="document-header">
+                                    <div class="document-icon">
+                                        {% set file_ext = document.file_path.split('.')[-1].lower() if document.file_path else 'unknown' %}
+                                        {% if file_ext in ['pdf'] %}
+                                            <i class="fas fa-file-pdf" style="color: #e74c3c;"></i>
+                                        {% elif file_ext in ['doc', 'docx'] %}
+                                            <i class="fas fa-file-word" style="color: #2980b9;"></i>
+                                        {% elif file_ext in ['xls', 'xlsx'] %}
+                                            <i class="fas fa-file-excel" style="color: #27ae60;"></i>
+                                        {% elif file_ext in ['ppt', 'pptx'] %}
+                                            <i class="fas fa-file-powerpoint" style="color: #f39c12;"></i>
+                                        {% elif file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                                            <i class="fas fa-file-image" style="color: #9b59b6;"></i>
+                                        {% elif file_ext in ['mp4', 'avi', 'mov'] %}
+                                            <i class="fas fa-file-video" style="color: #e67e22;"></i>
+                                        {% else %}
+                                            <i class="fas fa-file" style="color: #7f8c8d;"></i>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="document-actions" onclick="event.stopPropagation();">
+                                        {% if current_user.role == 'admin' %}
+                                            <button onclick="
+                                                if(confirm('{{ document.title }} dokümanını silmek istediğinizden emin misiniz?')) {
+                                                    window.location.href = '/admin/knowledge-base/delete/{{ document.document_id }}?confirm=true';
+                                                }
+                                            " style="background: #dc3545; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 1rem;" title="Dokümanı Sil">
+                                                🗑️
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="document-body">
+                                    <h4 class="document-title">{{ document.title }}</h4>
+
+                                    {% if document.description %}
+                                        <p class="document-description">
+                                            {{ document.description[:100] }}{% if document.description|length > 100 %}...{% endif %}
+                                        </p>
+                                    {% endif %}
+
+                                    <div class="document-meta">
+                                        {% if document.category %}
+                                            <span class="category-tag">
+                                                <i class="fas fa-tag"></i>
+                                                {{ document.category }}
+                                            </span>
+                                        {% endif %}
+
+                                        {% if document.department %}
+                                            <span class="department-tag">
+                                                <i class="fas fa-building"></i>
+                                                {{ document.department }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="document-footer">
+                                    <div class="upload-info">
+                                        <div class="uploader">
+                                            <i class="fas fa-user"></i>
+                                            {{ document.uploader.name if document.uploader else 'Bilinmiyor' }} {{ document.uploader.surname if document.uploader and document.uploader.surname else '' }}
+                                        </div>
+                                        <div class="upload-date">
+                                            <i class="fas fa-calendar"></i>
+                                            {{ document.upload_date.strftime('%d.%m.%Y') }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="click-hint" style="position: absolute; bottom: 10px; right: 10px; background: rgba(0, 0, 0, 0.7); color: white; padding: 5px 10px; border-radius: 15px; font-size: 0.75rem; opacity: 0; transition: all 0.3s ease; pointer-events: none;">
+                                    <i class="fas fa-mouse-pointer"></i> Açmak için tıklayın
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="no-documents">
+                        <div class="no-documents-icon">
+                            <i class="fas fa-folder-open"></i>
+                        </div>
+                        <h3>Henüz doküman eklenmemiş</h3>
+                        <p>Sisteme doküman eklemek için "Doküman Yükle" butonunu kullanabilirsiniz.</p>
+                        <a href="{{ url_for('main.admin_upload_document') }}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i>
+                            İlk Dokümanı Ekle
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+
+            {% if documents %}
+                <div class="statistics-section">
+                    <h3>
+                        <i class="fas fa-chart-bar"></i>
+                        Bilgi Bankası İstatistikleri
+                    </h3>
+
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="stat-number">{{ documents|length }}</div>
+                            <div class="stat-label">Gösterilen Doküman</div>
+                            <div class="stat-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                        </div>
+
+                        <div class="stat-box">
+                            <div class="stat-number">{{ categories|length }}</div>
+                            <div class="stat-label">Kategori</div>
+                            <div class="stat-icon">
+                                <i class="fas fa-tags"></i>
+                            </div>
+                        </div>
+
+                        <div class="stat-box">
+                            <div class="stat-number">{{ departments|length }}</div>
+                            <div class="stat-label">Departman</div>
+                            <div class="stat-icon">
+                                <i class="fas fa-building"></i>
+                            </div>
+                        </div>
+
+                        <div class="stat-box">
+                            <div class="stat-number">{{ (documents|selectattr('file_path')|list)|length }}</div>
+                            <div class="stat-label">Dosyalı Doküman</div>
+                            <div class="stat-icon">
+                                <i class="fas fa-paperclip"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div id="deleteModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4><i class="fas fa-exclamation-triangle"></i> Doküman Sil</h4>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>Bu dokümanı silmek istediğinizden emin misiniz?</p>
+                <p><strong id="documentTitle"></strong></p>
+                <p style="color: #dc3545; font-size: 0.9em;">
+                    <i class="fas fa-exclamation-triangle"></i> Bu işlem geri alınamaz!
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeDeleteModal()">İptal</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash"></i> Sil
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/admin_dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/documents.js') }}"></script>
+</body>
+</html>

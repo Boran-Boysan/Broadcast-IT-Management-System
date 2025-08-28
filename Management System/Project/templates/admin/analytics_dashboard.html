@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}" class="active">
+                <i class="fas fa-chart-line"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname if current_user.surname else '' }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="flash-messages">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'error' else category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-chart-line" style="margin-right: 15px; color: #667eea;"></i>
+                    Analytics Dashboard
+                </h1>
+                <div class="header-actions">
+                    <button onclick="exportReport()" class="btn btn-success">
+                        <i class="fas fa-download"></i>
+                        Rapor İndir
+                    </button>
+                    <button onclick="refreshData()" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i>
+                        Yenile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Key Metrics -->
+            <div class="analytics-metrics">
+                <div class="metric-card equipment-total">
+                    <div class="metric-header">
+                        <div class="metric-icon">
+                            <i class="fas fa-desktop"></i>
+                        </div>
+                        <div class="metric-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>+5%</span>
+                        </div>
+                    </div>
+                    <div class="metric-body">
+                        <h3 class="metric-number">{{ equipment_stats.total }}</h3>
+                        <p class="metric-label">Toplam Ekipman</p>
+                        <div class="metric-detail">
+                            <span class="status-indicator in-use"></span>
+                            Kullanımda: {{ equipment_stats.in_use }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card licenses-total">
+                    <div class="metric-header">
+                        <div class="metric-icon">
+                            <i class="fas fa-key"></i>
+                        </div>
+                        <div class="metric-trend neutral">
+                            <i class="fas fa-minus"></i>
+                            <span>0%</span>
+                        </div>
+                    </div>
+                    <div class="metric-body">
+                        <h3 class="metric-number">{{ license_stats.total }}</h3>
+                        <p class="metric-label">Yazılım Lisansı</p>
+                        <div class="metric-detail">
+                            <span class="status-indicator active"></span>
+                            Aktif: {{ license_stats.active }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card employees-total">
+                    <div class="metric-header">
+                        <div class="metric-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="metric-trend up">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>+2%</span>
+                        </div>
+                    </div>
+                    <div class="metric-body">
+                        <h3 class="metric-number">{{ employee_stats.total }}</h3>
+                        <p class="metric-label">Toplam Çalışan</p>
+                        <div class="metric-detail">
+                            <span class="status-indicator admin"></span>
+                            Admin: {{ employee_stats.admin }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card warnings-total">
+                    <div class="metric-header">
+                        <div class="metric-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="metric-trend {{ 'down' if license_stats.expiring_soon == 0 else 'warning' }}">
+                            <i class="fas fa-{{ 'arrow-down' if license_stats.expiring_soon == 0 else 'exclamation' }}"></i>
+                            <span>{{ license_stats.expiring_soon }}</span>
+                        </div>
+                    </div>
+                    <div class="metric-body">
+                        <h3 class="metric-number">{{ license_stats.expired + license_stats.expiring_soon }}</h3>
+                        <p class="metric-label">Uyarılar</p>
+                        <div class="metric-detail">
+                            <span class="status-indicator expired"></span>
+                            Süresi Dolmuş: {{ license_stats.expired }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="charts-container">
+                <!-- Equipment Status Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-pie"></i> Ekipman Durumu</h3>
+                        <div class="chart-controls">
+                            <select id="equipmentPeriod" onchange="updateEquipmentChart()">
+                                <option value="all">Tüm Zamanlar</option>
+                                <option value="month">Bu Ay</option>
+                                <option value="week">Bu Hafta</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="equipmentStatusChart"></canvas>
+                    </div>
+                    <div class="chart-legend">
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #28a745;"></span>
+                            <span>Kullanımda ({{ equipment_stats.in_use }})</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #17a2b8;"></span>
+                            <span>Stokta ({{ equipment_stats.in_stock }})</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #ffc107;"></span>
+                            <span>Tamirde ({{ equipment_stats.under_repair }})</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-color" style="background: #dc3545;"></span>
+                            <span>Hurda ({{ equipment_stats.scrap }})</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Distribution Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-chart-bar"></i> Kategori Dağılımı</h3>
+                        <div class="chart-controls">
+                            <button onclick="toggleChartType('categoryChart')" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-exchange-alt"></i> Grafik Tipi
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- License Status Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-key"></i> Lisans Durumları</h3>
+                        <div class="chart-info">
+                            <span class="info-badge">{{ license_stats.expiring_soon }} Yakında Sona Erecek</span>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="licenseStatusChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Department Equipment Chart -->
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3><i class="fas fa-building"></i> Departman Bazlı Ekipman</h3>
+                        <div class="chart-controls">
+                            <button onclick="showDepartmentDetails()" class="btn btn-sm btn-outline-success">
+                                <i class="fas fa-list"></i> Detaylar
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="departmentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Tables Section -->
+            <div class="data-tables-container">
+                <!-- Top Equipment Categories -->
+                <div class="data-table-card">
+                    <div class="table-header">
+                        <h3><i class="fas fa-trophy"></i> En Çok Kullanılan Kategoriler</h3>
+                    </div>
+                    <div class="table-body">
+                        {% if equipment_categories %}
+                            <table class="analytics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Rank</th>
+                                        <th>Kategori</th>
+                                        <th>Miktar</th>
+                                        <th>Kullanım %</th>
+                                        <th>Trend</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for category, count in equipment_categories[:5] %}
+                                    <tr>
+                                        <td><span class="rank-badge">{{ loop.index }}</span></td>
+                                        <td>
+                                            <div class="category-info">
+                                                <i class="fas fa-{{ 'server' if category == 'Server' else 'desktop' if category == 'PC' else 'network-wired' if category == 'Network' else 'cube' }}"></i>
+                                                {{ category }}
+                                            </div>
+                                        </td>
+                                        <td><strong>{{ count }}</strong></td>
+                                        <td>
+                                            <div class="progress-bar">
+                                                <div class="progress-fill" style="width: {{ (count / equipment_stats.total * 100)|round }}%"></div>
+                                            </div>
+                                            <span>{{ (count / equipment_stats.total * 100)|round }}%</span>
+                                        </td>
+                                        <td>
+                                            <span class="trend-indicator up">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div style="padding: 40px; text-align: center; color: #999;">
+                                <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>Henüz ekipman kategorisi verisi bulunmuyor.</p>
+                                <a href="{{ url_for('main.admin_add_equipment') }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-plus"></i> İlk Ekipmanı Ekle
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div><table class="analytics-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Kategori</th>
+                                    <th>Miktar</th>
+                                    <th>Kullanım %</th>
+                                    <th>Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for category, count in equipment_categories[:5] %}
+                                <tr>
+                                    <td><span class="rank-badge">{{ loop.index }}</span></td>
+                                    <td>
+                                        <div class="category-info">
+                                            <i class="fas fa-{{ 'server' if category == 'Server' else 'desktop' if category == 'PC' else 'network-wired' if category == 'Network' else 'cube' }}"></i>
+                                            {{ category }}
+                                        </div>
+                                    </td>
+                                    <td><strong>{{ count }}</strong></td>
+                                    <td>
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: {{ (count / equipment_stats.total * 100)|round }}%"></div>
+                                        </div>
+                                        <span>{{ (count / equipment_stats.total * 100)|round }}%</span>
+                                    </td>
+                                    <td>
+                                        <span class="trend-indicator up">
+                                            <i class="fas fa-arrow-up"></i>
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- License Expiry Warning -->
+                <div class="data-table-card warning">
+                    <div class="table-header">
+                        <h3><i class="fas fa-clock"></i> Lisans Sona Erme Takvimi</h3>
+                    </div>
+                    <div class="table-body">
+                        {% if expiring_licenses %}
+                            <table class="analytics-table">
+                                <thead>
+                                    <tr>
+                                        <th>Yazılım</th>
+                                        <th>Vendor</th>
+                                        <th>Son Tarih</th>
+                                        <th>Kalan Gün</th>
+                                        <th>Durum</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for license in expiring_licenses %}
+                                    <tr class="{{ 'expired' if license.days_left < 0 else 'warning' if license.days_left < 30 else '' }}">
+                                        <td>
+                                            <div class="software-info">
+                                                <i class="fas fa-key"></i>
+                                                {{ license.software_name }}
+                                            </div>
+                                        </td>
+                                        <td>{{ license.vendor or 'N/A' }}</td>
+                                        <td>{{ license.expiration_date.strftime('%d.%m.%Y') if license.expiration_date else 'Süresiz' }}</td>
+                                        <td>
+                                            {% if license.expiration_date %}
+                                                <span class="days-left {{ 'expired' if license.days_left < 0 else 'warning' if license.days_left < 30 else 'ok' }}">
+                                                    {{ license.days_left if license.days_left >= 0 else 'Dolmuş' }}
+                                                    {% if license.days_left >= 0 %}gün{% endif %}
+                                                </span>
+                                            {% else %}
+                                                <span class="days-left ok">Süresiz</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if license.expiration_date %}
+                                                {% if license.days_left < 0 %}
+                                                    <span class="status-badge expired">Dolmuş</span>
+                                                {% elif license.days_left < 30 %}
+                                                    <span class="status-badge warning">Yakında</span>
+                                                {% else %}
+                                                    <span class="status-badge active">Aktif</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="status-badge active">Süresiz</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div style="padding: 40px; text-align: center; color: #999;">
+                                <i class="fas fa-info-circle" style="font-size: 2rem; margin-bottom: 10px;"></i>
+                                <p>{{ 'Henüz lisans verisi bulunmuyor.' if license_stats.total == 0 else 'Tüm lisanslar süresiz veya uzun vadeli.' }}</p>
+                                {% if license_stats.total == 0 %}
+                                    <a href="{{ url_for('main.admin_add_license') }}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-plus"></i> İlk Lisansı Ekle
+                                    </a>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Health Section -->
+            <div class="system-health-container">
+                <div class="health-header">
+                    <h3><i class="fas fa-heartbeat"></i> Sistem Sağlığı</h3>
+                    <div class="health-status {{ 'overall-healthy' if system_health.overall_status == 'healthy' else 'overall-warning' }}">
+                        <i class="fas fa-{{ 'check-circle' if system_health.overall_status == 'healthy' else 'exclamation-triangle' }}"></i>
+                        <span>{{ 'Sistem Sağlıklı' if system_health.overall_status == 'healthy' else 'Dikkat Gerekli' }}</span>
+                    </div>
+                </div>
+
+                <div class="health-metrics">
+                    <div class="health-metric">
+                        <div class="health-icon database">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div class="health-info">
+                            <h4>Database</h4>
+                            <p>{{ 'Aktif' if system_health.database_health > 80 else 'Uyarı' }}</p>
+                            <div class="health-bar">
+                                <div class="health-fill" style="width: {{ system_health.database_health }}%"></div>
+                            </div>
+                        </div>
+                        <div class="health-value">{{ system_health.database_health }}%</div>
+                    </div>
+
+                    <div class="health-metric">
+                        <div class="health-icon storage">
+                            <i class="fas fa-hdd"></i>
+                        </div>
+                        <div class="health-info">
+                            <h4>Depolama</h4>
+                            <p>{{ 'Kullanım Normal' if system_health.storage_usage < 80 else 'Yüksek Kullanım' }}</p>
+                            <div class="health-bar">
+                                <div class="health-fill" style="width: {{ system_health.storage_usage }}%"></div>
+                            </div>
+                        </div>
+                        <div class="health-value">{{ system_health.storage_usage }}%</div>
+                    </div>
+
+                    <div class="health-metric">
+                        <div class="health-icon network">
+                            <i class="fas fa-wifi"></i>
+                        </div>
+                        <div class="health-info">
+                            <h4>Network</h4>
+                            <p>{{ 'Bağlantı İyi' if system_health.network_status > 70 else 'Bağlantı Zayıf' }}</p>
+                            <div class="health-bar">
+                                <div class="health-fill" style="width: {{ system_health.network_status }}%"></div>
+                            </div>
+                        </div>
+                        <div class="health-value">{{ system_health.network_status }}%</div>
+                    </div>
+
+                    <div class="health-metric">
+                        <div class="health-icon security">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="health-info">
+                            <h4>Güvenlik</h4>
+                            <p>{{ 'Tüm Sistemler Güvenli' if system_health.security_score > 85 else 'Güvenlik Kontrol' }}</p>
+                            <div class="health-bar">
+                                <div class="health-fill" style="width: {{ system_health.security_score }}%"></div>
+                            </div>
+                        </div>
+                        <div class="health-value">{{ system_health.security_score }}%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Factors Alert -->
+            {% if risk_factors %}
+            <div class="risk-alerts-container">
+                <div class="risk-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Risk Değerlendirmesi</h3>
+                </div>
+                <div class="risk-alerts">
+                    {% for risk in risk_factors %}
+                    <div class="risk-alert {{ risk.severity }}">
+                        <div class="risk-icon">
+                            <i class="fas fa-{{ 'exclamation-triangle' if risk.severity == 'high' else 'exclamation-circle' if risk.severity == 'medium' else 'info-circle' }}"></i>
+                        </div>
+                        <div class="risk-content">
+                            <h4>{{ risk.message }}</h4>
+                            {% if risk.count > 0 %}
+                                <p>{{ risk.count }} öğe dikkat gerektiriyor</p>
+                            {% endif %}
+                        </div>
+                        <div class="risk-action">
+                            {% if risk.type == 'expired_licenses' %}
+                                <a href="{{ url_for('main.admin_licenses') }}" class="btn btn-sm btn-danger">İncele</a>
+                            {% elif risk.type == 'equipment_repair' %}
+                                <a href="{{ url_for('main.admin_inventory_equipment') }}" class="btn btn-sm btn-warning">İncele</a>
+                            {% elif risk.type == 'no_data' %}
+                                <a href="{{ url_for('main.admin_inventory_dashboard') }}" class="btn btn-sm btn-primary">Başlat</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/analytics_dashboard.js') }}"></script>
+</body>
+</html>

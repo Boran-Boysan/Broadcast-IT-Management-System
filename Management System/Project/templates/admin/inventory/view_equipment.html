@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ equipment.equipment_name }} - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}" class="active">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">Ekipman Detayları</h1>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('main.admin_inventory_dashboard') }}">Envanter</a> /
+                    <a href="{{ url_for('main.admin_inventory_equipment') }}">Ekipmanlar</a> /
+                    <span>{{ equipment.equipment_name }}</span>
+                </div>
+            </div>
+
+            <!-- Equipment Profile -->
+            <div class="equipment-profile">
+                <div class="profile-header">
+                    <div class="equipment-avatar-xl">
+                        {% if equipment.category == 'Server' %}
+                            <i class="fas fa-server"></i>
+                        {% elif equipment.category == 'Switch' %}
+                            <i class="fas fa-network-wired"></i>
+                        {% elif equipment.category == 'Camera' %}
+                            <i class="fas fa-video"></i>
+                        {% elif equipment.category == 'PC' or equipment.category == 'Laptop' %}
+                            <i class="fas fa-desktop"></i>
+                        {% elif equipment.category == 'Monitor' %}
+                            <i class="fas fa-tv"></i>
+                        {% else %}
+                            <i class="fas fa-cube"></i>
+                        {% endif %}
+                    </div>
+                    <h1 class="profile-name">{{ equipment.equipment_name }}</h1>
+                    <p class="profile-subtitle">{{ equipment.brand }} {{ equipment.model }} • {{ equipment.category }}</p>
+                </div>
+
+                <div class="profile-body">
+                    <!-- Warranty Alert -->
+                    {% if equipment.purchase_date %}
+                        {% set warranty_expired = equipment.is_warranty_expired() %}
+                        {% if warranty_expired == True %}
+                            <div class="warranty-alert expired">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <div>
+                                    <strong>Garanti Süresi Dolmuş!</strong>
+                                    <p>Bu ekipmanın 3 yıllık garanti süresi sona ermiştir.</p>
+                                </div>
+                            </div>
+                        {% elif warranty_expired == False %}
+                            <div class="warranty-alert valid">
+                                <i class="fas fa-shield-alt"></i>
+                                <div>
+                                    <strong>Garanti Kapsamında</strong>
+                                    <p>Bu ekipman hâlâ garanti kapsamındadır.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endif %}
+
+                    <div class="info-grid">
+                        <!-- Basic Information -->
+                        <div class="info-card">
+                            <h3><i class="fas fa-info-circle"></i> Temel Bilgiler</h3>
+                            <div class="info-item">
+                                <span class="info-label">Ekipman ID:</span>
+                                <span class="info-value">#{{ equipment.equipment_id }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Kategori:</span>
+                                <span class="info-value">{{ equipment.category_display }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Marka:</span>
+                                <span class="info-value">{{ equipment.brand or 'Belirtilmemiş' }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Model:</span>
+                                <span class="info-value">{{ equipment.model or 'Belirtilmemiş' }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Seri No:</span>
+                                <span class="info-value">{{ equipment.serial_number or 'Belirtilmemiş' }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Status Information -->
+                        <div class="info-card">
+                            <h3><i class="fas fa-chart-line"></i> Durum Bilgileri</h3>
+                            <div class="info-item">
+                                <span class="info-label">Mevcut Durum:</span>
+                                <span class="status-badge status-{{ equipment.status.replace('_', '-') }}">
+                                    {{ equipment.status_display }}
+                                </span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Konum:</span>
+                                <span class="info-value">{{ equipment.location or 'Belirtilmemiş' }}</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Atanan Kişi:</span>
+                                <span class="info-value">
+                                    {% if assigned_employee %}
+                                        <div class="assigned-user">
+                                            <div class="assigned-avatar">
+                                                {{ assigned_employee.name[0] }}{{ assigned_employee.surname[0] }}
+                                            </div>
+                                            <span>{{ assigned_employee.name }} {{ assigned_employee.surname }}</span>
+                                        </div>
+                                    {% else %}
+                                        <span style="color: #999;">Atanmamış</span>
+                                    {% endif %}
+                                </span>
+                            </div>
+                            {% if assigned_employee %}
+                                <div class="info-item">
+                                    <span class="info-label">Departman:</span>
+                                    <span class="info-value">{{ assigned_employee.department or 'Belirtilmemiş' }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">E-posta:</span>
+                                    <span class="info-value">{{ assigned_employee.email }}</span>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Purchase Information -->
+                        <div class="info-card">
+                            <h3><i class="fas fa-calendar-alt"></i> Satın Alma Bilgileri</h3>
+                            <div class="info-item">
+                                <span class="info-label">Satın Alma Tarihi:</span>
+                                <span class="info-value">
+                                    {{ equipment.purchase_date.strftime('%d.%m.%Y') if equipment.purchase_date else 'Belirtilmemiş' }}
+                                </span>
+                            </div>
+                            {% if equipment.purchase_date %}
+                                <div class="info-item">
+                                    <span class="info-label">Yaşı:</span>
+                                    <span class="info-value">
+                                        {% set age_days = equipment.get_age_days() %}
+                                        {% if age_days %}
+                                            {% if age_days < 365 %}
+                                                {{ (age_days / 30)|round|int }} ay
+                                            {% else %}
+                                                {{ (age_days / 365)|round(1) }} yıl
+                                            {% endif %}
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            {% endif %}
+                            <div class="info-item">
+                                <span class="info-label">Son Güncelleme:</span>
+                                <span class="info-value">
+                                    {{ equipment.last_updated.strftime('%d.%m.%Y %H:%M') if equipment.last_updated else 'Belirtilmemiş' }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Technical Specs (Placeholder) -->
+                        <div class="info-card">
+                            <h3><i class="fas fa-cogs"></i> Teknik Özellikler</h3>
+                            <div class="info-item">
+                                <span class="info-label">CPU:</span>
+                                <span class="info-value" style="color: #999;">Yakında eklenecek</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">RAM:</span>
+                                <span class="info-value" style="color: #999;">Yakında eklenecek</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Storage:</span>
+                                <span class="info-value" style="color: #999;">Yakında eklenecek</span>
+                            </div>
+                            <div class="info-item">
+                                <span class="info-label">Network:</span>
+                                <span class="info-value" style="color: #999;">Yakında eklenecek</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- QR Code Section -->
+            <div class="qr-section">
+                <h3><i class="fas fa-qrcode"></i> QR Kod</h3>
+                <div class="qr-placeholder">
+                    <i class="fas fa-qrcode" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p>QR Kod Oluşturulacak</p>
+                    <small>Ekipman ID: {{ equipment.equipment_id }}</small>
+                </div>
+                <button class="btn btn-success" onclick="showComingSoon('QR Kod Oluştur')">
+                    <i class="fas fa-qrcode"></i>
+                    QR Kod Oluştur
+                </button>
+            </div>
+
+            <!-- Actions Section -->
+            <div class="actions-section">
+                <h3>İşlemler</h3>
+                <div class="action-buttons">
+                    <a href="{{ url_for('main.admin_edit_equipment', equipment_id=equipment.equipment_id) }}" class="btn btn-warning">
+                        <i class="fas fa-edit"></i>
+                        Düzenle
+                    </a>
+
+                    <a href="{{ url_for('main.admin_inventory_equipment') }}" class="btn btn-secondary">
+                        <i class="fas fa-list"></i>
+                        Tüm Ekipmanlar
+                    </a>
+
+                    <button class="btn btn-primary" onclick="printEquipmentInfo()">
+                        <i class="fas fa-print"></i>
+                        Yazdır
+                    </button>
+
+                    <button class="btn btn-success" onclick="showComingSoon('Bakım Geçmişi')">
+                        <i class="fas fa-tools"></i>
+                        Bakım Geçmişi
+                    </button>
+
+                    <button class="btn btn-primary" onclick="showComingSoon('Rapor Oluştur')">
+                        <i class="fas fa-file-alt"></i>
+                        Rapor Oluştur
+                    </button>
+
+                    <form method="POST"
+                          action="{{ url_for('main.admin_delete_equipment', equipment_id=equipment.equipment_id) }}"
+                          style="display: inline;"
+                          onsubmit="return confirmDelete()">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash"></i>
+                            Sil
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="activity-feed">
+                <div class="activity-header">
+                    <i class="fas fa-history"></i>
+                    <h3>Ekipman Geçmişi</h3>
+                </div>
+
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-plus-circle"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Ekipman Sisteme Eklendi</h4>
+                        <p>{{ equipment.last_updated.strftime('%d.%m.%Y %H:%M') if equipment.last_updated else 'Tarih belirtilmemiş' }}</p>
+                    </div>
+                </div>
+
+                {% if assigned_employee %}
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-user-tag"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>{{ assigned_employee.name }} {{ assigned_employee.surname }} Adına Atandı</h4>
+                        <p>{{ assigned_employee.department or 'Departman belirtilmemiş' }} departmanı</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-eye"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Detaylar Görüntülendi</h4>
+                        <p>{{ current_user.name }} {{ current_user.surname }} tarafından - Şimdi</p>
+                    </div>
+                </div>
+
+                <div class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="activity-content">
+                        <h4>Gelişmiş Aktivite Takibi</h4>
+                        <p>Detaylı aktivite geçmişi yakında eklenecek</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/view_equipment.js') }}"></script>
+</body>
+</html><!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ equipment.equipment_name }} - TRT Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.

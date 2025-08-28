@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Çalışan Ekle - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}" class="active">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content employee-create">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">Yeni Çalışan Ekle</h1>
+                <div class="breadcrumb">
+                    <a href="{{ url_for('main.admin_dashboard') }}">Dashboard</a> /
+                    <a href="{{ url_for('main.admin_employees') }}">Çalışanlar</a> /
+                    <span>Yeni Çalışan</span>
+                </div>
+            </div>
+
+            <div class="form-container">
+                <div class="form-header">
+                    <h2><i class="fas fa-user-plus"></i> Çalışan Bilgileri</h2>
+                </div>
+
+                <div class="form-body">
+                    <div class="form-info">
+                        <p><strong>Bilgi:</strong> Tüm zorunlu alanları (*) doldurun. Çalışan sisteme kayıt olduktan sonra bu bilgilerle giriş yapabilecek.</p>
+                    </div>
+
+                    <form id="employeeForm" method="POST" action="{{ url_for('main.admin_add_employee') }}">
+                        <!-- İsim ve Soyisim - 2 Kolon -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="name">Ad <span class="required">*</span></label>
+                                <input type="text"
+                                       id="name"
+                                       name="name"
+                                       class="form-control"
+                                       required
+                                       maxlength="30"
+                                       placeholder="Çalışanın adı"
+                                       autocomplete="given-name">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="surname">Soyad <span class="required">*</span></label>
+                                <input type="text"
+                                       id="surname"
+                                       name="surname"
+                                       class="form-control"
+                                       required
+                                       maxlength="30"
+                                       placeholder="Çalışanın soyadı"
+                                       autocomplete="family-name">
+                            </div>
+                        </div>
+
+                        <!-- E-posta - Tek Kolon Full Width -->
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="email">E-posta <span class="required">*</span></label>
+                                <input type="email"
+                                       id="email"
+                                       name="email"
+                                       class="form-control"
+                                       required
+                                       maxlength="50"
+                                       placeholder="ornek@.net.tr"
+                                       autocomplete="email">
+                            </div>
+                        </div>
+
+                        <!-- Şifre - Tek Kolon Full Width -->
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="password">Şifre <span class="required">*</span></label>
+                                <input type="password"
+                                       id="password"
+                                       name="password"
+                                       class="form-control"
+                                       required
+                                       placeholder="Güvenli bir şifre girin"
+                                       autocomplete="new-password">
+                                <div id="passwordStrength" class="password-strength"></div>
+                            </div>
+                        </div>
+
+                        <!-- Departman ve Rol - 2 Kolon -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="department">Departman</label>
+                                <select id="department" name="department" class="form-control">
+                                    <option value="">Departman seçin (opsiyonel)</option>
+                                    <option value="IT">Bilgi İşlem (IT)</option>
+                                    <option value="Broadcast">Yayın Teknolojisi</option>
+                                    <option value="Engineering">Mühendislik</option>
+                                    <option value="Production">Prodüksiyon</option>
+                                    <option value="News">Haber</option>
+                                    <option value="Sports">Spor</option>
+                                    <option value="Programs">Program</option>
+                                    <option value="Technical">Teknik</option>
+                                    <option value="HR">İnsan Kaynakları</option>
+                                    <option value="Finance">Finans</option>
+                                    <option value="Legal">Hukuk</option>
+                                    <option value="Marketing">Pazarlama</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="role">Rol <span class="required">*</span></label>
+                                <select id="role" name="role" class="form-control" required>
+                                    <option value="">Rol seçin</option>
+                                    <option value="user">Kullanıcı (User)</option>
+                                    <option value="manager">Müdür (Manager)</option>
+                                    <option value="admin">Yönetici (Admin)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="btn-container">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <i class="fas fa-save"></i>
+                                Çalışan Ekle
+                            </button>
+
+                            <a href="{{ url_for('main.admin_employees') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i>
+                                İptal
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/add_employee.js') }}"></script>
+</body>
+</html>

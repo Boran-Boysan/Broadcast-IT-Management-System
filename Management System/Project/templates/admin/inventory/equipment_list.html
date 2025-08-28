@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ekipman Listesi - Broadcast IT</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Broadcast IT</h3>
+            <p>Admin Panel</p>
+        </div>
+
+        <ul class="sidebar-menu">
+            <li><a href="{{ url_for('main.admin_dashboard') }}">
+                <i class="fas fa-tachometer-alt"></i>
+                <span>Dashboard</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_employees') }}">
+                <i class="fas fa-users"></i>
+                <span>Çalışanlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_inventory_dashboard') }}" class="active">
+                <i class="fas fa-boxes"></i>
+                <span>Envanter ve Lisans</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_knowledge_base') }}">
+                <i class="fas fa-book"></i>
+                <span>Bilgi Bankası</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_analytics_dashboard') }}">
+                <i class="fas fa-chart-bar"></i>
+                <span>Raporlar</span>
+            </a></li>
+            <li><a href="{{ url_for('main.admin_settings') }}">
+                <i class="fas fa-cog"></i>
+                <span>Ayarlar</span>
+            </a></li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <div class="top-bar">
+            <button class="toggle-sidebar" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <h4>{{ current_user.name }} {{ current_user.surname }}</h4>
+                    <p>{{ current_user.role|title }} - {{ current_user.department or 'Genel' }}</p>
+                </div>
+                <a href="{{ url_for('main.logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i> Çıkış
+                </a>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else category }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if category == 'success' %}#d4edda{% elif category == 'error' or category == 'danger' %}#f8d7da{% else %}#e8f4ff{% endif %}; border-left: 4px solid {% if category == 'success' %}#28a745{% elif category == 'error' or category == 'danger' %}#dc3545{% else %}#667eea{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="page-header">
+                <h1 class="page-title">
+                    <div class="equipment-icon">
+                        <i class="fas fa-desktop"></i>
+                    </div>
+                    Ekipman Listesi
+                </h1>
+                <a href="{{ url_for('main.admin_add_equipment') }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i>
+                    Yeni Ekipman Ekle
+                </a>
+            </div>
+
+            <!-- Equipment Count -->
+            <div class="equipment-count">
+                <div>
+                    <strong>Toplam {{ equipment_list|length }} ekipman listeleniyor</strong>
+                    {% if search or category_filter or status_filter or assigned_filter %}
+                        <span style="opacity: 0.8; font-size: 0.9rem; margin-left: 10px;">
+                            (Filtrelenmiş sonuçlar)
+                        </span>
+                    {% endif %}
+                </div>
+                {% if search or category_filter or status_filter or assigned_filter %}
+                    <a href="{{ url_for('main.admin_inventory_equipment') }}" style="color: white; text-decoration: none; opacity: 0.8;">
+                        <i class="fas fa-times"></i> Filtreleri Temizle
+                    </a>
+                {% endif %}
+            </div>
+
+            <!-- Search and Filters -->
+            <div class="search-filters">
+                <form method="GET" action="{{ url_for('main.admin_inventory_equipment') }}">
+                    <div class="filter-grid">
+                        <div class="form-group">
+                            <label for="search">Arama</label>
+                            <input type="text"
+                                   id="search"
+                                   name="search"
+                                   class="form-control"
+                                   placeholder="Ekipman adı, marka, model veya seri no..."
+                                   value="{{ search }}">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="category">Kategori</label>
+                            <select id="category" name="category" class="form-control">
+                                <option value="">Tüm Kategoriler</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat }}" {% if cat == category_filter %}selected{% endif %}>
+                                        {{ cat }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="status">Durum</label>
+                            <select id="status" name="status" class="form-control">
+                                <option value="">Tüm Durumlar</option>
+                                <option value="in_use" {% if status_filter == 'in_use' %}selected{% endif %}>Kullanımda</option>
+                                <option value="in_stock" {% if status_filter == 'in_stock' %}selected{% endif %}>Stokta</option>
+                                <option value="under_repair" {% if status_filter == 'under_repair' %}selected{% endif %}>Tamirde</option>
+                                <option value="scrap" {% if status_filter == 'scrap' %}selected{% endif %}>Hurdaya Çıkarıldı</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="assigned">Atama</label>
+                            <select id="assigned" name="assigned" class="form-control">
+                                <option value="">Tümü</option>
+                                <option value="assigned" {% if assigned_filter == 'assigned' %}selected{% endif %}>Atanmış</option>
+                                <option value="unassigned" {% if assigned_filter == 'unassigned' %}selected{% endif %}>Atanmamış</option>
+                            </select>
+                        </div>
+
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-search"></i>
+                            Filtrele
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Equipment Table -->
+            <div class="equipment-table">
+                <div class="table-header">
+                    <h3><i class="fas fa-desktop"></i> Ekipman Listesi</h3>
+                    <span>{{ equipment_list|length }} kayıt</span>
+                </div>
+
+                {% if equipment_list %}
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Ekipman</th>
+                                    <th>Kategori</th>
+                                    <th>Seri No</th>
+                                    <th>Durum</th>
+                                    <th>Atanan Kişi</th>
+                                    <th>Konum</th>
+                                    <th>Son Güncelleme</th>
+                                    <th>İşlemler</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for equipment in equipment_list %}
+                                    <tr>
+                                        <td>
+                                            <div class="equipment-info">
+                                                {% if equipment.category == 'Server' %}
+                                                    <div class="equipment-icon-small server">
+                                                        <i class="fas fa-server"></i>
+                                                    </div>
+                                                {% elif equipment.category == 'Switch' %}
+                                                    <div class="equipment-icon-small switch">
+                                                        <i class="fas fa-network-wired"></i>
+                                                    </div>
+                                                {% elif equipment.category == 'Camera' %}
+                                                    <div class="equipment-icon-small camera">
+                                                        <i class="fas fa-video"></i>
+                                                    </div>
+                                                {% elif equipment.category == 'PC' %}
+                                                    <div class="equipment-icon-small pc">
+                                                        <i class="fas fa-desktop"></i>
+                                                    </div>
+                                                {% elif equipment.category == 'Laptop' %}
+                                                    <div class="equipment-icon-small laptop">
+                                                        <i class="fas fa-laptop"></i>
+                                                    </div>
+                                                {% else %}
+                                                    <div class="equipment-icon-small other">
+                                                        <i class="fas fa-cube"></i>
+                                                    </div>
+                                                {% endif %}
+
+                                                <div class="equipment-details">
+                                                    <h4>{{ equipment.equipment_name }}</h4>
+                                                    <p>{{ equipment.brand }} {{ equipment.model }}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>{{ equipment.category }}</td>
+                                        <td>{{ equipment.serial_number or '-' }}</td>
+                                        <td>
+                                            <span class="status-badge status-{{ equipment.status.replace('_', '-') }}">
+                                                {{ equipment.status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            {% if equipment.assigned_employee %}
+                                                <div class="assigned-info">
+                                                    <div class="assigned-avatar">
+                                                        {{ equipment.assigned_employee.name[0] }}{{ equipment.assigned_employee.surname[0] }}
+                                                    </div>
+                                                    <span>{{ equipment.assigned_employee.name }} {{ equipment.assigned_employee.surname }}</span>
+                                                </div>
+                                            {% else %}
+                                                <span style="color: #999;">Atanmamış</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ equipment.location or '-' }}</td>
+                                        <td>
+                                            {% if equipment.last_updated %}
+                                                {{ equipment.last_updated.strftime('%d.%m.%Y') }}
+                                                <br>
+                                                <small style="color: #999;">{{ equipment.last_updated.strftime('%H:%M') }}</small>
+                                            {% else %}
+                                                <span style="color: #999;">-</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="actions">
+                                                <a href="{{ url_for('main.admin_view_equipment', equipment_id=equipment.equipment_id) }}"
+                                                   class="btn btn-info" title="Görüntüle">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                <a href="{{ url_for('main.admin_edit_equipment', equipment_id=equipment.equipment_id) }}"
+                                                   class="btn btn-warning" title="Düzenle">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form method="POST"
+                                                      action="{{ url_for('main.admin_delete_equipment', equipment_id=equipment.equipment_id) }}"
+                                                      style="display: inline;"
+                                                      onsubmit="return confirm('{{ equipment.equipment_name }} adlı ekipmanı silmek istediğinizden emin misiniz?')">
+                                                    <button type="submit" class="btn btn-danger" title="Sil">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="no-results">
+                        <i class="fas fa-box-open"></i>
+                        <h3>Ekipman Bulunamadı</h3>
+                        <p>Arama kriterlerinize uygun ekipman bulunamadı.</p>
+                        {% if search or category_filter or status_filter or assigned_filter %}
+                            <p>
+                                <a href="{{ url_for('main.admin_inventory_equipment') }}" style="color: #28a745;">
+                                    Filtreleri temizleyip tüm ekipmanları görüntüle
+                                </a>
+                            </p>
+                        {% else %}
+                            <p>
+                                <a href="{{ url_for('main.admin_add_equipment') }}" class="btn btn-success" style="margin-top: 15px;">
+                                    <i class="fas fa-plus"></i> İlk Ekipmanı Ekle
+                                </a>
+                            </p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/equipment_list.js') }}"></script>
+
+</body>
+</html>
